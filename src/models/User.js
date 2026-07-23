@@ -31,6 +31,9 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ["admin", "developer", "student", "mentor", "recruiter"],
         default: "developer"
+    },
+    dialogflowSessionId: {
+        type: String
     }
 }, {
     timestamps: true

@@ -15,6 +15,21 @@ const snippetSchema = new mongoose.Schema({
         enum: ["public", "private"],
         default: "private"
     },
+    embeddings: {
+        type: [Number],
+        default: []
+    },
+    aiSummary: {
+        type: String
+    },
+    likes: {
+        type: Number,
+        default: 0
+    },
+    views: {
+        type: Number,
+        default: 0
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
