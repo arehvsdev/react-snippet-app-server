@@ -5,19 +5,17 @@ const Snippet = require("../models/Snippet");
  * GET /api/admin/users
  * Returns list of all registered users (Admin-only)
  */
-const getAllUsers = async (req, res) => {
+const getAllUsers = async (req, res, next) => {
     try {
         const users = await User.find({}).select("-password");
-        res.json({
+
+        res.status(200).json({
             success: true,
+            data: users,
             users
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: "Failed to retrieve users",
-            error: error.message
-        });
+        next(error);
     }
 };
 
@@ -25,7 +23,7 @@ const getAllUsers = async (req, res) => {
  * DELETE /api/admin/snippets/:id
  * Force deletes any user's snippet (Admin-only)
  */
-const deleteAnySnippet = async (req, res) => {
+const deleteAnySnippet = async (req, res, next) => {
     try {
         const snippet = await Snippet.findById(req.params.id);
         if (!snippet) {
@@ -36,16 +34,13 @@ const deleteAnySnippet = async (req, res) => {
         }
 
         await snippet.deleteOne();
-        res.json({
+
+        res.status(200).json({
             success: true,
             message: "Snippet deleted by Administrator successfully"
         });
     } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: "Failed to delete snippet",
-            error: error.message
-        });
+        next(error);
     }
 };
 
