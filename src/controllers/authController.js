@@ -12,7 +12,8 @@ const register = async (req, res, next) => {
         if (existingEmail) {
             return res.status(409).json({
                 success: false,
-                message: "Email is already registered"
+                message: "Email is already registered",
+                errors: null
             });
         }
 
@@ -20,7 +21,8 @@ const register = async (req, res, next) => {
         if (existingUsername) {
             return res.status(409).json({
                 success: false,
-                message: "Username is already taken"
+                message: "Username is already taken",
+                errors: null
             });
         }
 
@@ -54,13 +56,6 @@ const register = async (req, res, next) => {
 const checkUsername = async (req, res, next) => {
     try {
         const { username } = req.query;
-        if (!username) {
-            return res.status(400).json({
-                success: false,
-                available: false,
-                message: "Username is required"
-            });
-        }
 
         const exists = await User.findOne({ username: username.toLowerCase() });
 
@@ -83,7 +78,8 @@ const login = async (req, res, next) => {
         if (!user) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid Credentials"
+                message: "Invalid Credentials",
+                errors: null
             });
         }
 
@@ -95,7 +91,8 @@ const login = async (req, res, next) => {
         if (!valid) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid Credentials"
+                message: "Invalid Credentials",
+                errors: null
             });
         }
 

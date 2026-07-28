@@ -4,11 +4,16 @@ const {
     login,
     checkUsername
 } = require("../controllers/authController");
+const {
+    validateRegister,
+    validateLogin,
+    validateCheckUsername
+} = require("../middleware/validators");
 
 const router = express.Router();
 
-router.get('/check-username', checkUsername);
-router.post('/register', register);
-router.post('/login', login);
+router.get('/check-username', validateCheckUsername, checkUsername);
+router.post('/register', validateRegister, register);
+router.post('/login', validateLogin, login);
 
 module.exports = router;

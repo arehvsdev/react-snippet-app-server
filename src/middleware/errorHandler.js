@@ -5,13 +5,30 @@ const errorHandler = (err, req, res, next) => {
 
     console.error(err);
 
-    const statusCode = res.statusCode && res.statusCode !== 200
+    let statusCode = res.statusCode && res.statusCode !== 200
         ? res.statusCode
         : 500;
+    let message = err.message || "Internal Server Error";
+
+    if (err.name === "CastError") {
+        statusCode = 400;
+        message = "Invalid resource id";
+    }
+
+    if (err.name === "ValidationError") {
+        statusCode = 400;
+        message = err.message;
+    }
+
+    if (err.code === 11000) {
+        statusCode = 409;
+        message = "Duplicate field value entered";
+    }
 
     res.status(statusCode).json({
         success: false,
-        message: err.message || "Internal Server Error"
+        message,
+        errors: null
     });
 };
 

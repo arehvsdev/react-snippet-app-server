@@ -4,6 +4,7 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const snippetRoutes = require("./routes/snippetRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const categoryRoutes = require("./routes/categoryRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
@@ -21,6 +22,7 @@ app.use("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/snippets", snippetRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/categories", categoryRoutes);
 
 
 

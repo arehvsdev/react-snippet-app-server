@@ -6,6 +6,7 @@ const {
     getAllUsers,
     deleteAnySnippet
 } = require("../controllers/adminController");
+const { mongoIdParam } = require("../middleware/validators");
 
 // Secure all admin routes with authentication and role-based authorization
 router.use(protect);
@@ -15,6 +16,6 @@ router.use(isAdmin);
 router.get("/users", getAllUsers);
 
 /** DELETE /api/admin/snippets/:id — force delete any snippet */
-router.delete("/snippets/:id", deleteAnySnippet);
+router.delete("/snippets/:id", mongoIdParam("id"), deleteAnySnippet);
 
 module.exports = router;

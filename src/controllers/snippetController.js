@@ -5,7 +5,7 @@ const Comment = require("../models/Comment");
 /** POST /api/snippets - create a new snippet */
 const createSnippet = async (req, res, next) => {
     try {
-        const { title, description, language, code, tags, visibility } = req.body;
+        const { title, description, language, code, tags, visibility, category } = req.body;
 
         const snippet = await Snippet.create({
             title,
@@ -13,6 +13,7 @@ const createSnippet = async (req, res, next) => {
             language,
             code,
             tags,
+            category,
             visibility: visibility || "public",
             createdBy: req.user.id,
         });
@@ -22,6 +23,55 @@ const createSnippet = async (req, res, next) => {
             message: "Snippet created successfully",
             data: snippet,
             snippet
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/** PUT /api/snippets/:id - update own snippet */
+const updateSnippet = async (req, res, next) => {
+    try {
+        const snippet = await Snippet.findById(req.params.id);
+        if (!snippet) {
+            return res.status(404).json({
+                success: false,
+                message: "Snippet not found",
+                errors: null
+            });
+        }
+
+        if (String(snippet.createdBy) !== String(req.user.id)) {
+            return res.status(403).json({
+                success: false,
+                message: "Not authorised",
+                errors: null
+            });
+        }
+
+        const allowedFields = [
+            "title",
+            "description",
+            "language",
+            "code",
+            "tags",
+            "visibility",
+            "category"
+        ];
+
+        allowedFields.forEach(field => {
+            if (Object.prototype.hasOwnProperty.call(req.body, field)) {
+                snippet[field] = req.body[field];
+            }
+        });
+
+        const updatedSnippet = await snippet.save();
+
+        res.status(200).json({
+            success: true,
+            message: "Snippet updated successfully",
+            data: updatedSnippet,
+            snippet: updatedSnippet
         });
     } catch (error) {
         next(error);
@@ -61,7 +111,8 @@ const getSnippetById = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
+                message: "Snippet not found",
+                errors: null
             });
         }
 
@@ -82,14 +133,16 @@ const deleteSnippet = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
+                message: "Snippet not found",
+                errors: null
             });
         }
 
         if (String(snippet.createdBy) !== String(req.user.id)) {
             return res.status(403).json({
                 success: false,
-                message: "Not authorised"
+                message: "Not authorised",
+                errors: null
             });
         }
 
@@ -114,7 +167,8 @@ const toggleBookmark = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
+                message: "Snippet not found",
+                errors: null
             });
         }
 
@@ -174,14 +228,8 @@ const addComment = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
-            });
-        }
-
-        if (!content) {
-            return res.status(400).json({
-                success: false,
-                message: "Comment content is required"
+                message: "Snippet not found",
+                errors: null
             });
         }
 
@@ -213,7 +261,8 @@ const getComments = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
+                message: "Snippet not found",
+                errors: null
             });
         }
 
@@ -236,6 +285,7 @@ module.exports = {
     getSnippets,
     getSnippetById,
     deleteSnippet,
+    updateSnippet,
     toggleBookmark,
     getUserBookmarks,
     addComment,

@@ -29,7 +29,8 @@ const deleteAnySnippet = async (req, res, next) => {
         if (!snippet) {
             return res.status(404).json({
                 success: false,
-                message: "Snippet not found"
+                message: "Snippet not found",
+                errors: null
             });
         }
 

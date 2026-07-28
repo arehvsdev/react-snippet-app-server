@@ -5,7 +5,8 @@ const protect = (req, res, next) => {
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({
             success: false,
-            message: "Not authorised, no token"
+            message: "Not authorised, no token",
+            errors: null
         });
     }
 
@@ -17,7 +18,8 @@ const protect = (req, res, next) => {
     } catch {
         return res.status(401).json({
             success: false,
-            message: "Not authorised, invalid token"
+            message: "Not authorised, invalid token",
+            errors: null
         });
     }
 };
