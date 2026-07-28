@@ -1,0 +1,476 @@
+{
+  "info": {
+    "_postman_id": "c1f7b8d0-5e3e-4a2e-8b1a-snippet-api-v1",
+    "name": "React Snippet App API",
+    "description": "Comprehensive Postman Collection for testing the React Snippet App backend server endpoints including Auth, Snippets, Bookmarks, Comments, and Admin controls.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:5000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "snippetId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health & System",
+      "item": [
+        {
+          "name": "Root API Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/",
+              "host": ["{{baseUrl}}"],
+              "path": [""]
+            },
+            "description": "Checks if the backend API server is running."
+          },
+          "response": []
+        },
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Returns overall system health status including MongoDB connection state, server uptime, and timestamp."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Check Username Availability",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/check-username?username=johndoe",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "check-username"],
+              "query": [
+                {
+                  "key": "username",
+                  "value": "johndoe",
+                  "description": "Username to verify availability"
+                }
+              ]
+            },
+            "description": "Verifies whether a given username is available or already taken."
+          },
+          "response": []
+        },
+        {
+          "name": "Register User",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"username\": \"johndoe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securepassword123\",\n  \"role\": \"developer\",\n  \"phonenumber\": \"1234567890\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            },
+            "description": "Registers a new user on the platform."
+          },
+          "response": []
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('authToken', jsonData.token);",
+                  "        console.log('authToken saved:', jsonData.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securepassword123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Authenticates a user and automatically stores the returned JWT in the 'authToken' collection variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Login Admin",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.token) {",
+                  "        pm.collectionVariables.set('adminToken', jsonData.token);",
+                  "        console.log('adminToken saved:', jsonData.token);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agreesh777@gmail.com\",\n  \"password\": \"N(438720737275un\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "login"]
+            },
+            "description": "Logs in with Admin credentials and automatically stores the JWT token in the 'adminToken' collection variable."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Snippets",
+      "item": [
+        {
+          "name": "Get All Snippets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets"]
+            },
+            "description": "Retrieves public code snippets."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Snippets by Filter",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets?visibility=public",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets"],
+              "query": [
+                {
+                  "key": "visibility",
+                  "value": "public",
+                  "description": "Filter by visibility (public/private)"
+                },
+                {
+                  "key": "userId",
+                  "value": "",
+                  "disabled": true,
+                  "description": "Filter by creator MongoDB ObjectId"
+                }
+              ]
+            },
+            "description": "Retrieves snippets with filter parameters."
+          },
+          "response": []
+        },
+        {
+          "name": "Create Snippet",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData._id) {",
+                  "        pm.collectionVariables.set('snippetId', jsonData._id);",
+                  "        console.log('snippetId saved:', jsonData._id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Reverse a String in JS\",\n  \"description\": \"A quick utility function to reverse a string\",\n  \"language\": \"javascript\",\n  \"code\": \"const reverse = str => str.split('').reverse().join('');\",\n  \"tags\": [\"string\", \"utility\"],\n  \"visibility\": \"public\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets"]
+            },
+            "description": "Creates a new snippet and saves its `_id` into the `snippetId` collection variable."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Snippet By ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/{{snippetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "{{snippetId}}"]
+            },
+            "description": "Fetches a single snippet by its ID."
+          },
+          "response": []
+        },
+        {
+          "name": "Get My Bookmarks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/my/bookmarks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "my", "bookmarks"]
+            },
+            "description": "Fetches all snippets bookmarked by the currently authenticated user."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Bookmark",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/{{snippetId}}/bookmarks",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "{{snippetId}}", "bookmarks"]
+            },
+            "description": "Toggles bookmark status (add/remove) for the specified snippet."
+          },
+          "response": []
+        },
+        {
+          "name": "Add Comment",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Great utility snippet! Very clean implementation.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/{{snippetId}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "{{snippetId}}", "comments"]
+            },
+            "description": "Adds a comment to the specified snippet."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Comments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/{{snippetId}}/comments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "{{snippetId}}", "comments"]
+            },
+            "description": "Retrieves all comments associated with the specified snippet."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Own Snippet",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{authToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/snippets/{{snippetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "snippets", "{{snippetId}}"]
+            },
+            "description": "Deletes a snippet owned by the logged-in user."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "Get All Users (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "users"]
+            },
+            "description": "Admin endpoint to retrieve a list of all registered users."
+          },
+          "response": []
+        },
+        {
+          "name": "Force Delete Any Snippet (Admin)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/snippets/{{snippetId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "snippets", "{{snippetId}}"]
+            },
+            "description": "Admin endpoint to force delete any snippet regardless of ownership."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

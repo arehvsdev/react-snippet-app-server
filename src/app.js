@@ -5,6 +5,8 @@ const authRoutes = require("./routes/authRoutes");
 const snippetRoutes = require("./routes/snippetRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const healthRoutes = require("./routes/healthRoutes");
+const notFound = require("./middleware/notFound");
+const errorHandler = require("./middleware/errorHandler");
 const app = express();
 
 const swaggerUi = require('swagger-ui-express');
@@ -28,5 +30,8 @@ app.get("/", (req, res) => {
         message: "Code Snippet API Running"
     });
 });
+
+app.use(notFound);
+app.use(errorHandler);
 
 module.exports = app;
