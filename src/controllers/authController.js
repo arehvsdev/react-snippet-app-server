@@ -2,7 +2,7 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const register = async (req, res) => {
+const register = async (req, res, next) => {
     try {
         const {
             name, username, email, password, role, phonenumber
@@ -38,34 +38,43 @@ const register = async (req, res) => {
             role: userRole
         });
 
-        res.status(201).json(user);
-    }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        })
-    }
-}
+        const { password: _, ...userWithoutPassword } = user.toObject();
 
-const checkUsername = async (req, res) => {
+        res.status(201).json({
+            success: true,
+            message: "User created successfully",
+            data: userWithoutPassword,
+            user: userWithoutPassword
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const checkUsername = async (req, res, next) => {
     try {
         const { username } = req.query;
         if (!username) {
-            return res.status(400).json({ available: false, message: "Username is required" });
+            return res.status(400).json({
+                success: false,
+                available: false,
+                message: "Username is required"
+            });
         }
-        const exists = await User.findOne({ username: username.toLowerCase() });
-        res.json({ available: !exists });
-    }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        })
-    }
-}
 
-const login = async (req, res) => {
+        const exists = await User.findOne({ username: username.toLowerCase() });
+
+        res.status(200).json({
+            success: true,
+            data: { available: !exists },
+            available: !exists
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const login = async (req, res, next) => {
     try {
         const user = await User.findOne({
             email: req.body.email
@@ -73,9 +82,10 @@ const login = async (req, res) => {
 
         if (!user) {
             return res.status(400).json({
+                success: false,
                 message: "Invalid Credentials"
-            })
-        };
+            });
+        }
 
         const valid = await bcrypt.compare(
             req.body.password,
@@ -84,9 +94,10 @@ const login = async (req, res) => {
 
         if (!valid) {
             return res.status(400).json({
+                success: false,
                 message: "Invalid Credentials"
-            })
-        };
+            });
+        }
 
         const token = jwt.sign(
             { id: user._id, role: user.role },
@@ -95,18 +106,23 @@ const login = async (req, res) => {
         );
 
         const { password: _, ...userWithoutPassword } = user.toObject();
-        res.json({ token, user: userWithoutPassword });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                token,
+                user: userWithoutPassword
+            },
+            token,
+            user: userWithoutPassword
+        });
+    } catch (error) {
+        next(error);
     }
-    catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: error.message
-        })
-    }
-}
+};
 
 module.exports = {
     register,
     login,
     checkUsername
-}
+};
