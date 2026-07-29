@@ -8,24 +8,6 @@ const register = async (req, res, next) => {
             name, username, email, password, role, phonenumber
         } = req.body;
 
-        const existingEmail = await User.findOne({ email });
-        if (existingEmail) {
-            return res.status(409).json({
-                success: false,
-                message: "Email is already registered",
-                errors: null
-            });
-        }
-
-        const existingUsername = await User.findOne({ username: username?.toLowerCase() });
-        if (existingUsername) {
-            return res.status(409).json({
-                success: false,
-                message: "Username is already taken",
-                errors: null
-            });
-        }
-
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const allowedRoles = ["developer", "student", "mentor", "recruiter"];

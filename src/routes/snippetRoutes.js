@@ -17,7 +17,8 @@ const {
     validateSnippetList,
     validateCreateSnippet,
     validateUpdateSnippet,
-    validateComment
+    validateComment,
+    validateBookmarkToggle
 } = require("../middleware/validators");
 
 router.get("/", validateSnippetList, getSnippets);
@@ -26,7 +27,7 @@ router.get("/:id", mongoIdParam("id"), getSnippetById);
 router.post("/", protect, validateCreateSnippet, createSnippet);
 router.put("/:id", protect, validateUpdateSnippet, updateSnippet);
 router.delete("/:id", protect, mongoIdParam("id"), deleteSnippet);
-router.post("/:id/bookmarks", protect, mongoIdParam("id"), toggleBookmark);
+router.post("/:id/bookmarks", protect, validateBookmarkToggle, toggleBookmark);
 router.get("/:id/comments", mongoIdParam("id"), getComments);
 router.post("/:id/comments", protect, validateComment, addComment);
 

@@ -32,6 +32,14 @@ const userSchema = new mongoose.Schema({
         enum: ["admin", "developer", "student", "mentor", "recruiter"],
         default: "developer"
     },
+    bio: {
+        type: String,
+        default: ""
+    },
+    avatar: {
+        type: String,
+        default: ""
+    },
     dialogflowSessionId: {
         type: String
     }

@@ -1,4 +1,6 @@
 const { body, param, query, validationResult } = require("express-validator");
+const User = require("../models/User");
+const Category = require("../models/Category");
 
 const allowedRoles = ["developer", "student", "mentor", "recruiter"];
 const allowedVisibility = ["public", "private"];
@@ -33,7 +35,17 @@ const optionalCategory = body("category")
     .optional({ nullable: true, checkFalsy: true })
     .customSanitizer(value => value || undefined)
     .isMongoId()
-    .withMessage("Category must be a valid MongoDB id");
+    .withMessage("Category must be a valid MongoDB id")
+    .bail()
+    .custom(async (categoryId) => {
+        if (categoryId) {
+            const category = await Category.findById(categoryId);
+            if (!category) {
+                throw new Error("Category does not exist");
+            }
+        }
+        return true;
+    });
 
 const tagsValidator = body("tags")
     .optional()
@@ -60,7 +72,15 @@ const validateRegister = [
         .withMessage("Username must be between 3 and 30 characters")
         .bail()
         .matches(/^[a-zA-Z0-9_]+$/)
-        .withMessage("Username can only contain letters, numbers, and underscores"),
+        .withMessage("Username can only contain letters, numbers, and underscores")
+        .bail()
+        .custom(async (username) => {
+            const user = await User.findOne({ username: username.toLowerCase() });
+            if (user) {
+                throw new Error("Username is already taken");
+            }
+            return true;
+        }),
     body("email")
         .trim()
         .notEmpty()
@@ -68,20 +88,33 @@ const validateRegister = [
         .bail()
         .isEmail()
         .withMessage("Please provide a valid email")
-        .normalizeEmail(),
+        .normalizeEmail()
+        .bail()
+        .custom(async (email) => {
+            const user = await User.findOne({ email });
+            if (user) {
+                throw new Error("Email is already registered");
+            }
+            return true;
+        }),
     body("password")
         .notEmpty()
         .withMessage("Password is required")
         .bail()
-        .isLength({ min: 6 })
-        .withMessage("Password must be at least 6 characters long"),
+        .isLength({ min: 8 })
+        .withMessage("Password must be at least 8 characters long")
+        .bail()
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#])/)
+        .withMessage("Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#)"),
     body("role")
         .optional()
         .isIn(allowedRoles)
         .withMessage(`Role must be one of: ${allowedRoles.join(", ")}`),
     body("phonenumber")
-        .optional({ nullable: true, checkFalsy: true })
         .trim()
+        .notEmpty()
+        .withMessage("Phone number is required")
+        .bail()
         .isLength({ min: 7, max: 20 })
         .withMessage("Phone number must be between 7 and 20 characters"),
     handleValidationErrors
@@ -234,7 +267,15 @@ const validateCreateCategory = [
         .withMessage("Category name is required")
         .bail()
         .isLength({ min: 2, max: 60 })
-        .withMessage("Category name must be between 2 and 60 characters"),
+        .withMessage("Category name must be between 2 and 60 characters")
+        .bail()
+        .custom(async (name) => {
+            const category = await Category.findOne({ name: new RegExp(`^${name}$`, 'i') });
+            if (category) {
+                throw new Error("Category name already exists");
+            }
+            return true;
+        }),
     body("description")
         .optional({ nullable: true, checkFalsy: true })
         .trim()
@@ -254,7 +295,18 @@ const validateUpdateCategory = [
         .withMessage("Category name cannot be empty")
         .bail()
         .isLength({ min: 2, max: 60 })
-        .withMessage("Category name must be between 2 and 60 characters"),
+        .withMessage("Category name must be between 2 and 60 characters")
+        .bail()
+        .custom(async (name, { req }) => {
+            const category = await Category.findOne({
+                name: new RegExp(`^${name}$`, 'i'),
+                _id: { $ne: req.params.id }
+            });
+            if (category) {
+                throw new Error("Category name already exists");
+            }
+            return true;
+        }),
     body("description")
         .optional({ nullable: true })
         .trim()
@@ -270,6 +322,38 @@ const validateUpdateCategory = [
     handleValidationErrors
 ];
 
+const validateBookmarkToggle = [
+    param("id")
+        .isMongoId()
+        .withMessage("Snippet id must be a valid MongoDB id"),
+    handleValidationErrors
+];
+
+const validateUpdateProfile = [
+    body("name")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Name cannot be empty")
+        .bail()
+        .isLength({ min: 2, max: 60 })
+        .withMessage("Name must be between 2 and 60 characters"),
+    body("phonenumber")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Phone number cannot be empty")
+        .bail()
+        .isLength({ min: 7, max: 20 })
+        .withMessage("Phone number must be between 7 and 20 characters"),
+    body("bio")
+        .optional({ nullable: true })
+        .trim()
+        .isLength({ max: 1000 })
+        .withMessage("Bio cannot exceed 1000 characters"),
+    handleValidationErrors
+];
+
 module.exports = {
     handleValidationErrors,
     mongoIdParam,
@@ -281,5 +365,7 @@ module.exports = {
     validateUpdateSnippet,
     validateComment,
     validateCreateCategory,
-    validateUpdateCategory
+    validateUpdateCategory,
+    validateBookmarkToggle,
+    validateUpdateProfile
 };
