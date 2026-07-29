@@ -26,6 +26,10 @@ const snippetSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    bookmarksCount: {
+        type: Number,
+        default: 0
+    },
     views: {
         type: Number,
         default: 0
@@ -34,9 +38,14 @@ const snippetSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
     }
-
 }, {
     timestamps: true
 });
+
+snippetSchema.index({ visibility: 1, createdBy: 1 });
+snippetSchema.index({ category: 1 });
+snippetSchema.index({ language: 1 });
+snippetSchema.index({ tags: 1 });
+snippetSchema.index({ createdAt: -1 });
 
 module.exports = mongoose.model("Snippet", snippetSchema);

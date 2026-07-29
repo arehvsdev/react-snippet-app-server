@@ -7,10 +7,25 @@ const Snippet = require("../models/Snippet");
  */
 const getAllUsers = async (req, res, next) => {
     try {
-        const users = await User.find({}).select("-password");
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        const totalItems = await User.countDocuments({});
+        const totalPages = Math.ceil(totalItems / limit);
+
+        const users = await User.find({})
+            .select("-password")
+            .skip(skip)
+            .limit(limit);
 
         res.status(200).json({
             success: true,
+            pagination: {
+                totalPages,
+                totalItems,
+                currentPage: page
+            },
             data: users,
             users
         });

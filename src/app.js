@@ -6,6 +6,8 @@ const authRoutes = require("./routes/authRoutes");
 const snippetRoutes = require("./routes/snippetRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const categoryRoutes = require("./routes/categoryRoutes");
+const languageRoutes = require("./routes/languageRoutes");
+const tagRoutes = require("./routes/tagRoutes");
 const userRoutes = require("./routes/userRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const notFound = require("./middleware/notFound");
@@ -26,6 +28,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/snippets", snippetRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/categories", categoryRoutes);
+app.use("/api/languages", languageRoutes);
+app.use("/api/tags", tagRoutes);
 app.use("/api/users", userRoutes);
 
 

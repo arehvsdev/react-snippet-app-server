@@ -1,6 +1,12 @@
 const { body, param, query, validationResult } = require("express-validator");
 const User = require("../models/User");
 const Category = require("../models/Category");
+const Language = require("../models/Language");
+const Tag = require("../models/Tag");
+
+const escapeRegExp = (string) => {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
 
 const allowedRoles = ["developer", "student", "mentor", "recruiter"];
 const allowedVisibility = ["public", "private"];
@@ -260,6 +266,17 @@ const validateComment = [
     handleValidationErrors
 ];
 
+const validateCommentBody = [
+    body("content")
+        .trim()
+        .notEmpty()
+        .withMessage("Comment content is required")
+        .bail()
+        .isLength({ max: 1000 })
+        .withMessage("Comment cannot exceed 1000 characters"),
+    handleValidationErrors
+];
+
 const validateCreateCategory = [
     body("name")
         .trim()
@@ -270,7 +287,7 @@ const validateCreateCategory = [
         .withMessage("Category name must be between 2 and 60 characters")
         .bail()
         .custom(async (name) => {
-            const category = await Category.findOne({ name: new RegExp(`^${name}$`, 'i') });
+            const category = await Category.findOne({ name: new RegExp(`^${escapeRegExp(name)}$`, 'i') });
             if (category) {
                 throw new Error("Category name already exists");
             }
@@ -299,7 +316,7 @@ const validateUpdateCategory = [
         .bail()
         .custom(async (name, { req }) => {
             const category = await Category.findOne({
-                name: new RegExp(`^${name}$`, 'i'),
+                name: new RegExp(`^${escapeRegExp(name)}$`, 'i'),
                 _id: { $ne: req.params.id }
             });
             if (category) {
@@ -319,6 +336,147 @@ const validateUpdateCategory = [
             return allowedFields.some(field => Object.prototype.hasOwnProperty.call(value, field));
         })
         .withMessage("At least one category field is required"),
+    handleValidationErrors
+];
+
+const validateCreateLanguage = [
+    body("name")
+        .trim()
+        .notEmpty()
+        .withMessage("Language name is required")
+        .bail()
+        .isLength({ min: 1, max: 50 })
+        .withMessage("Language name must be between 1 and 50 characters")
+        .bail()
+        .custom(async (name) => {
+            const language = await Language.findOne({ name: new RegExp(`^${escapeRegExp(name)}$`, 'i') });
+            if (language) {
+                throw new Error("Language name already exists");
+            }
+            return true;
+        }),
+    body("icon")
+        .trim()
+        .notEmpty()
+        .withMessage("Language icon/abbreviation is required")
+        .bail()
+        .isLength({ min: 1, max: 10 })
+        .withMessage("Language icon must be between 1 and 10 characters"),
+    handleValidationErrors
+];
+
+const validateUpdateLanguage = [
+    param("id")
+        .isMongoId()
+        .withMessage("Language id must be a valid MongoDB id"),
+    body("name")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Language name cannot be empty")
+        .bail()
+        .isLength({ min: 1, max: 50 })
+        .withMessage("Language name must be between 1 and 50 characters")
+        .bail()
+        .custom(async (name, { req }) => {
+            const language = await Language.findOne({
+                name: new RegExp(`^${escapeRegExp(name)}$`, 'i'),
+                _id: { $ne: req.params.id }
+            });
+            if (language) {
+                throw new Error("Language name already exists");
+            }
+            return true;
+        }),
+    body("icon")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Language icon cannot be empty")
+        .bail()
+        .isLength({ min: 1, max: 10 })
+        .withMessage("Language icon must be between 1 and 10 characters"),
+    body("isActive")
+        .optional()
+        .isBoolean()
+        .withMessage("isActive must be a boolean value"),
+    body()
+        .custom(value => {
+            const allowedFields = ["name", "icon", "isActive"];
+            return allowedFields.some(field => Object.prototype.hasOwnProperty.call(value, field));
+        })
+        .withMessage("At least one language field (name, icon, or isActive) is required"),
+    handleValidationErrors
+];
+
+const validateCreateTag = [
+    body("name")
+        .trim()
+        .notEmpty()
+        .withMessage("Tag name is required")
+        .bail()
+        .isLength({ min: 1, max: 50 })
+        .withMessage("Tag name must be between 1 and 50 characters")
+        .bail()
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage("Tag name can only contain letters, numbers, hyphens, and underscores")
+        .bail()
+        .custom(async (name) => {
+            const tag = await Tag.findOne({ name: new RegExp(`^${escapeRegExp(name)}$`, 'i') });
+            if (tag) {
+                throw new Error("Tag name already exists");
+            }
+            return true;
+        }),
+    body("color")
+        .optional({ nullable: true, checkFalsy: true })
+        .trim()
+        .matches(/^#[0-9A-Fa-f]{6}$/)
+        .withMessage("Tag color must be a valid 6-character hex color code (e.g. #3B82F6)"),
+    handleValidationErrors
+];
+
+const validateUpdateTag = [
+    param("id")
+        .isMongoId()
+        .withMessage("Tag id must be a valid MongoDB id"),
+    body("name")
+        .optional()
+        .trim()
+        .notEmpty()
+        .withMessage("Tag name cannot be empty")
+        .bail()
+        .isLength({ min: 1, max: 50 })
+        .withMessage("Tag name must be between 1 and 50 characters")
+        .bail()
+        .matches(/^[a-zA-Z0-9_-]+$/)
+        .withMessage("Tag name can only contain letters, numbers, hyphens, and underscores")
+        .bail()
+        .custom(async (name, { req }) => {
+            const tag = await Tag.findOne({
+                name: new RegExp(`^${escapeRegExp(name)}$`, 'i'),
+                _id: { $ne: req.params.id }
+            });
+            if (tag) {
+                throw new Error("Tag name already exists");
+            }
+            return true;
+        }),
+    body("color")
+        .optional({ nullable: true })
+        .trim()
+        .matches(/^#[0-9A-Fa-f]{6}$/)
+        .withMessage("Tag color must be a valid 6-character hex color code (e.g. #3B82F6)"),
+    body("isActive")
+        .optional()
+        .isBoolean()
+        .withMessage("isActive must be a boolean value"),
+    body()
+        .custom(value => {
+            const allowedFields = ["name", "color", "isActive"];
+            return allowedFields.some(field => Object.prototype.hasOwnProperty.call(value, field));
+        })
+        .withMessage("At least one tag field (name, color, or isActive) is required"),
     handleValidationErrors
 ];
 
@@ -364,8 +522,13 @@ module.exports = {
     validateCreateSnippet,
     validateUpdateSnippet,
     validateComment,
+    validateCommentBody,
     validateCreateCategory,
     validateUpdateCategory,
     validateBookmarkToggle,
-    validateUpdateProfile
+    validateUpdateProfile,
+    validateCreateLanguage,
+    validateUpdateLanguage,
+    validateCreateTag,
+    validateUpdateTag
 };
