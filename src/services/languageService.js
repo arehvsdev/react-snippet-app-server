@@ -8,9 +8,9 @@ const getLanguages = async (query = {}) => {
 
     const languageList = [];
     for (const lang of languages) {
-        // Count snippets that match this language name (case-insensitive string match)
+        // Count snippets that match this language name (exact match)
         const count = await Snippet.countDocuments({
-            language: new RegExp(`^${lang.name}$`, 'i')
+            language: lang.name
         });
         languageList.push({
             ...lang.toObject(),

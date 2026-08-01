@@ -24,7 +24,7 @@ const snippetSchema = new mongoose.Schema({
     visibility: {
         type: String,
         enum: ["public", "private"],
-        default: "private"
+        default: "public"
     },
     // Vector embeddings used for semantic search tasks
     embeddings: {

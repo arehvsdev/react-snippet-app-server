@@ -42,6 +42,14 @@ const userSchema = new mongoose.Schema({
     },
     dialogflowSessionId: {
         type: String
+    },
+    active: {
+        type: Boolean,
+        default: true
+    },
+    deleted: {
+        type: Boolean,
+        default: false
     }
 }, {
     timestamps: true
