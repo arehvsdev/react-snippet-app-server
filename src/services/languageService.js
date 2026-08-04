@@ -1,63 +1,74 @@
 const Language = require("../models/Language");
-const Snippet = require("../models/Snippet");
 
-const getLanguages = async (query = {}) => {
-    const languages = await Language.find(query)
-        .sort({ name: 1 })
-        .populate("createdBy", "name username");
-
-    const languageList = [];
-    for (const lang of languages) {
-        // Count snippets that match this language name (exact match)
-        const count = await Snippet.countDocuments({
-            language: lang.name
-        });
-        languageList.push({
-            ...lang.toObject(),
-            count
-        });
+const getLanguages = async (query) => {
+    const filter = {};
+    if (query.active !== undefined) {
+        filter.isActive = query.active === "true";
     }
-    return languageList;
+    return Language.find(filter).sort({ name: 1 });
 };
 
 const getLanguageById = async (id) => {
-    return await Language.findById(id)
-        .populate("createdBy", "name username");
+    const language = await Language.findById(id);
+    if (!language) {
+        const error = new Error("Language not found");
+        error.statusCode = 404;
+        throw error;
+    }
+    return language;
 };
 
 const createLanguage = async (data, userId) => {
-    return await Language.create({
-        name: data.name,
-        icon: data.icon,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+    const { name, icon, isActive } = data;
+    const existing = await Language.findOne({ name: new RegExp(`^${name.trim()}$`, "i") });
+    if (existing) {
+        const error = new Error("Language name already exists");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return Language.create({
+        name: name.trim(),
+        icon: icon.trim(),
+        isActive: isActive !== undefined ? isActive : true,
         createdBy: userId
     });
 };
 
 const updateLanguage = async (id, data) => {
-    const language = await Language.findById(id);
+    const { name, icon, isActive } = data;
+
+    if (name) {
+        const existing = await Language.findOne({ name: new RegExp(`^${name.trim()}$`, "i"), _id: { $ne: id } });
+        if (existing) {
+            const error = new Error("Language name already exists");
+            error.statusCode = 400;
+            throw error;
+        }
+    }
+
+    const updateFields = {};
+    if (name) updateFields.name = name.trim();
+    if (icon) updateFields.icon = icon.trim();
+    if (isActive !== undefined) updateFields.isActive = isActive;
+
+    const language = await Language.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true });
     if (!language) {
-        return null;
+        const error = new Error("Language not found");
+        error.statusCode = 404;
+        throw error;
     }
-    if (Object.prototype.hasOwnProperty.call(data, "name")) {
-        language.name = data.name;
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "icon")) {
-        language.icon = data.icon;
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "isActive")) {
-        language.isActive = data.isActive;
-    }
-    return await language.save();
+    return language;
 };
 
 const deleteLanguage = async (id) => {
-    const language = await Language.findById(id);
+    const language = await Language.findByIdAndDelete(id);
     if (!language) {
-        return null;
+        const error = new Error("Language not found");
+        error.statusCode = 404;
+        throw error;
     }
-    await language.deleteOne();
-    return language;
+    return true;
 };
 
 module.exports = {

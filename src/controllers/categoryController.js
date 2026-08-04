@@ -3,7 +3,6 @@ const categoryService = require("../services/categoryService");
 const getCategories = async (req, res, next) => {
     try {
         const categories = await categoryService.getCategories();
-
         res.status(200).json({
             success: true,
             data: categories,
@@ -17,15 +16,6 @@ const getCategories = async (req, res, next) => {
 const getCategoryById = async (req, res, next) => {
     try {
         const category = await categoryService.getCategoryById(req.params.id);
-
-        if (!category) {
-            return res.status(404).json({
-                success: false,
-                message: "Category not found",
-                errors: null
-            });
-        }
-
         res.status(200).json({
             success: true,
             data: category,
@@ -39,7 +29,6 @@ const getCategoryById = async (req, res, next) => {
 const createCategory = async (req, res, next) => {
     try {
         const category = await categoryService.createCategory(req.body, req.user.id);
-
         res.status(201).json({
             success: true,
             message: "Category created successfully",
@@ -53,21 +42,12 @@ const createCategory = async (req, res, next) => {
 
 const updateCategory = async (req, res, next) => {
     try {
-        const updatedCategory = await categoryService.updateCategory(req.params.id, req.body);
-
-        if (!updatedCategory) {
-            return res.status(404).json({
-                success: false,
-                message: "Category not found",
-                errors: null
-            });
-        }
-
+        const category = await categoryService.updateCategory(req.params.id, req.body);
         res.status(200).json({
             success: true,
             message: "Category updated successfully",
-            data: updatedCategory,
-            category: updatedCategory
+            data: category,
+            category
         });
     } catch (error) {
         next(error);
@@ -76,16 +56,7 @@ const updateCategory = async (req, res, next) => {
 
 const deleteCategory = async (req, res, next) => {
     try {
-        const deletedCategory = await categoryService.deleteCategory(req.params.id);
-
-        if (!deletedCategory) {
-            return res.status(404).json({
-                success: false,
-                message: "Category not found",
-                errors: null
-            });
-        }
-
+        await categoryService.deleteCategory(req.params.id);
         res.status(200).json({
             success: true,
             message: "Category deleted successfully"

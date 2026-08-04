@@ -512,6 +512,22 @@ const validateUpdateProfile = [
     handleValidationErrors
 ];
 
+const validateChangePassword = [
+    body("currentPassword")
+        .notEmpty()
+        .withMessage("Current password is required"),
+    body("newPassword")
+        .notEmpty()
+        .withMessage("New password is required")
+        .bail()
+        .isLength({ min: 8 })
+        .withMessage("New password must be at least 8 characters long")
+        .bail()
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#\.])/)
+        .withMessage("New password must include at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#.)"),
+    handleValidationErrors
+];
+
 module.exports = {
     handleValidationErrors,
     mongoIdParam,
@@ -527,6 +543,7 @@ module.exports = {
     validateUpdateCategory,
     validateBookmarkToggle,
     validateUpdateProfile,
+    validateChangePassword,
     validateCreateLanguage,
     validateUpdateLanguage,
     validateCreateTag,

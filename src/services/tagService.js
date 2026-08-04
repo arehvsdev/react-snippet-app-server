@@ -1,63 +1,77 @@
 const Tag = require("../models/Tag");
-const Snippet = require("../models/Snippet");
 
-const getTags = async (query = {}) => {
-    const tags = await Tag.find(query)
-        .sort({ name: 1 })
-        .populate("createdBy", "name username");
-
-    const tagList = [];
-    for (const tag of tags) {
-        // Count snippets that contain this tag name (case-insensitive search in tags array)
-        const count = await Snippet.countDocuments({
-            tags: { $in: [new RegExp(`^${tag.name}$`, 'i')] }
-        });
-        tagList.push({
-            ...tag.toObject(),
-            count
-        });
+const getTags = async (query) => {
+    const filter = {};
+    if (query.active !== undefined) {
+        filter.isActive = query.active === "true";
     }
-    return tagList;
+    if (query.search) {
+        filter.name = new RegExp(query.search.trim(), "i");
+    }
+    return Tag.find(filter).sort({ name: 1 });
 };
 
 const getTagById = async (id) => {
-    return await Tag.findById(id)
-        .populate("createdBy", "name username");
+    const tag = await Tag.findById(id);
+    if (!tag) {
+        const error = new Error("Tag not found");
+        error.statusCode = 404;
+        throw error;
+    }
+    return tag;
 };
 
 const createTag = async (data, userId) => {
-    return await Tag.create({
-        name: data.name.trim().toLowerCase(),
-        color: data.color || "#3B82F6",
-        isActive: data.isActive !== undefined ? data.isActive : true,
+    const { name, color, isActive } = data;
+    const existing = await Tag.findOne({ name: name.trim().toLowerCase() });
+    if (existing) {
+        const error = new Error("Tag name already exists");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return Tag.create({
+        name: name.trim().toLowerCase(),
+        color: color ? color.trim() : "#3B82F6",
+        isActive: isActive !== undefined ? isActive : true,
         createdBy: userId
     });
 };
 
 const updateTag = async (id, data) => {
-    const tag = await Tag.findById(id);
+    const { name, color, isActive } = data;
+
+    if (name) {
+        const existing = await Tag.findOne({ name: name.trim().toLowerCase(), _id: { $ne: id } });
+        if (existing) {
+            const error = new Error("Tag name already exists");
+            error.statusCode = 400;
+            throw error;
+        }
+    }
+
+    const updateFields = {};
+    if (name) updateFields.name = name.trim().toLowerCase();
+    if (color) updateFields.color = color.trim();
+    if (isActive !== undefined) updateFields.isActive = isActive;
+
+    const tag = await Tag.findByIdAndUpdate(id, updateFields, { new: true, runValidators: true });
     if (!tag) {
-        return null;
+        const error = new Error("Tag not found");
+        error.statusCode = 404;
+        throw error;
     }
-    if (Object.prototype.hasOwnProperty.call(data, "name")) {
-        tag.name = data.name.trim().toLowerCase();
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "color")) {
-        tag.color = data.color;
-    }
-    if (Object.prototype.hasOwnProperty.call(data, "isActive")) {
-        tag.isActive = data.isActive;
-    }
-    return await tag.save();
+    return tag;
 };
 
 const deleteTag = async (id) => {
-    const tag = await Tag.findById(id);
+    const tag = await Tag.findByIdAndDelete(id);
     if (!tag) {
-        return null;
+        const error = new Error("Tag not found");
+        error.statusCode = 404;
+        throw error;
     }
-    await tag.deleteOne();
-    return tag;
+    return true;
 };
 
 module.exports = {

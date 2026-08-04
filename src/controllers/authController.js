@@ -1,34 +1,13 @@
-const User = require("../models/User");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
+const authService = require("../services/authService");
 
 const register = async (req, res, next) => {
     try {
-        const {
-            name, username, email, password, role, phonenumber
-        } = req.body;
-
-        const hashedPassword = await bcrypt.hash(password, 10);
-
-        const allowedRoles = ["developer", "student", "mentor", "recruiter"];
-        const userRole = allowedRoles.includes(role) ? role : "developer";
-
-        const user = await User.create({
-            name,
-            username,
-            email,
-            password: hashedPassword,
-            phonenumber,
-            role: userRole
-        });
-
-        const { password: _, ...userWithoutPassword } = user.toObject();
-
+        const user = await authService.register(req.body);
         res.status(201).json({
             success: true,
             message: "User created successfully",
-            data: userWithoutPassword,
-            user: userWithoutPassword
+            data: user,
+            user
         });
     } catch (error) {
         next(error);
@@ -37,14 +16,11 @@ const register = async (req, res, next) => {
 
 const checkUsername = async (req, res, next) => {
     try {
-        const { username } = req.query;
-
-        const exists = await User.findOne({ username: username.toLowerCase() });
-
+        const available = await authService.checkUsername(req.query.username);
         res.status(200).json({
             success: true,
-            data: { available: !exists },
-            available: !exists
+            data: { available },
+            available
         });
     } catch (error) {
         next(error);
@@ -53,55 +29,12 @@ const checkUsername = async (req, res, next) => {
 
 const login = async (req, res, next) => {
     try {
-        const user = await User.findOne({
-            email: req.body.email
-        });
-
-        if (!user || user.deleted) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid Credentials",
-                errors: null
-            });
-        }
-
-        if (!user.active) {
-            return res.status(403).json({
-                success: false,
-                message: "Your account has been disabled. Please contact the administrator.",
-                errors: null
-            });
-        }
-
-        const valid = await bcrypt.compare(
-            req.body.password,
-            user.password
-        );
-
-        if (!valid) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid Credentials",
-                errors: null
-            });
-        }
-
-        const token = jwt.sign(
-            { id: user._id, role: user.role },
-            process.env.JWT_SECRET,
-            { expiresIn: "7d" }
-        );
-
-        const { password: _, ...userWithoutPassword } = user.toObject();
-
+        const result = await authService.login(req.body);
         res.status(200).json({
             success: true,
-            data: {
-                token,
-                user: userWithoutPassword
-            },
-            token,
-            user: userWithoutPassword
+            data: result,
+            token: result.token,
+            user: result.user
         });
     } catch (error) {
         next(error);
@@ -110,20 +43,7 @@ const login = async (req, res, next) => {
 
 const verifyEmail = async (req, res, next) => {
     try {
-        const { email } = req.body;
-        if (!email) {
-            return res.status(400).json({
-                success: false,
-                message: "Email is required"
-            });
-        }
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "Email is not registered"
-            });
-        }
+        await authService.verifyEmail(req.body.email);
         res.status(200).json({
             success: true,
             message: "Email verified successfully"
@@ -135,33 +55,7 @@ const verifyEmail = async (req, res, next) => {
 
 const resetPassword = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({
-                success: false,
-                message: "Email and password are required"
-            });
-        }
-
-        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#\.])[A-Za-z\d@$!%*?&#\.]{8,}$/;
-        if (!passwordRegex.test(password)) {
-            return res.status(400).json({
-                success: false,
-                message: "Password must be at least 8 characters, and include at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#.)."
-            });
-        }
-
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found"
-            });
-        }
-
-        user.password = await bcrypt.hash(password, 10);
-        await user.save();
-
+        await authService.resetPassword(req.body);
         res.status(200).json({
             success: true,
             message: "Password reset successful"

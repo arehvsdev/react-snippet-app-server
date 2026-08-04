@@ -5,9 +5,7 @@ const errorHandler = (err, req, res, next) => {
 
     console.error(err);
 
-    let statusCode = res.statusCode && res.statusCode !== 200
-        ? res.statusCode
-        : 500;
+    let statusCode = err.statusCode || (res.statusCode && res.statusCode !== 200 ? res.statusCode : 500);
     let message = err.message || "Internal Server Error";
 
     if (err.name === "CastError") {
@@ -28,7 +26,7 @@ const errorHandler = (err, req, res, next) => {
     res.status(statusCode).json({
         success: false,
         message,
-        errors: null
+        errors: err.errors || null
     });
 };
 

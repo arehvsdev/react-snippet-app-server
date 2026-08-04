@@ -6,9 +6,10 @@ const protect = require("../middleware/authMiddleware");
 const {
     getUserProfile,
     updateUserProfile,
-    updateUserAvatar
+    updateUserAvatar,
+    changePassword
 } = require("../controllers/userController");
-const { validateUpdateProfile } = require("../middleware/validators");
+const { validateUpdateProfile, validateChangePassword } = require("../middleware/validators");
 
 const router = express.Router();
 
@@ -50,6 +51,7 @@ router.use(protect);
 
 router.get("/profile", getUserProfile);
 router.put("/profile", validateUpdateProfile, updateUserProfile);
+router.put("/change-password", validateChangePassword, changePassword);
 
 router.patch("/avatar", (req, res, next) => {
     upload.single("avatar")(req, res, (err) => {

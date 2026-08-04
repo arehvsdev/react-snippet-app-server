@@ -5,18 +5,15 @@
 const mongoose = require("mongoose");
 
 const likeSchema = new mongoose.Schema({
-    // Reference to the user who liked the target item
     userId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
         required: true
     },
-    // Reference to the liked item (Snippet or Comment)
     targetId: {
         type: mongoose.Schema.Types.ObjectId,
         required: true
     },
-    // The type of document being liked
     targetType: {
         type: String,
         enum: ["Snippet", "Comment"],
@@ -28,5 +25,6 @@ const likeSchema = new mongoose.Schema({
 
 // Enforce unique likes: a user can only like a target item once
 likeSchema.index({ userId: 1, targetId: 1 }, { unique: true });
+likeSchema.index({ targetId: 1, targetType: 1 });
 
 module.exports = mongoose.model("Like", likeSchema);

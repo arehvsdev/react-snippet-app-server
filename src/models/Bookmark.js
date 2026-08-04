@@ -9,5 +9,6 @@ const bookmarkSchema = new mongoose.Schema({
 
 // Ensure a user can only bookmark a snippet once
 bookmarkSchema.index({ userId: 1, snippetId: 1 }, { unique: true });
+bookmarkSchema.index({ userId: 1, createdAt: -1 });
 
 module.exports = mongoose.model("Bookmark", bookmarkSchema);

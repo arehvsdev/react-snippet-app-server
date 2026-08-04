@@ -1,20 +1,8 @@
-const User = require("../models/User");
+const userService = require("../services/userService");
 
-/**
- * GET /api/users/profile
- * Retrieve authenticated user profile details
- */
 const getUserProfile = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user.id).select("-password");
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-                errors: null
-            });
-        }
-
+        const user = await userService.getUserProfile(req.user.id);
         res.status(200).json({
             success: true,
             data: user,
@@ -25,68 +13,31 @@ const getUserProfile = async (req, res, next) => {
     }
 };
 
-/**
- * PUT /api/users/profile
- * Update authenticated user profile details
- */
 const updateUserProfile = async (req, res, next) => {
     try {
-        const { name, phonenumber, bio } = req.body;
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-                errors: null
-            });
-        }
-
-        if (name !== undefined) user.name = name;
-        if (phonenumber !== undefined) user.phonenumber = phonenumber;
-        if (bio !== undefined) user.bio = bio;
-
-        const updatedUser = await user.save();
-        const { password: _, ...userWithoutPassword } = updatedUser.toObject();
-
+        const updatedUser = await userService.updateUserProfile(req.user.id, req.body);
         res.status(200).json({
             success: true,
             message: "Profile updated successfully",
-            data: userWithoutPassword,
-            user: userWithoutPassword
+            data: updatedUser,
+            user: updatedUser
         });
     } catch (error) {
         next(error);
     }
 };
 
-/**
- * PATCH /api/users/avatar
- * Update authenticated user avatar (file upload)
- */
 const updateUserAvatar = async (req, res, next) => {
     try {
         if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: "Validation failed",
-                errors: [{ field: "avatar", message: "Please upload an avatar image file" }]
+                message: "No avatar image provided",
+                errors: [{ field: "avatar", message: "Please upload an image file" }]
             });
         }
 
-        const user = await User.findById(req.user.id);
-        if (!user) {
-            return res.status(404).json({
-                success: false,
-                message: "User not found",
-                errors: null
-            });
-        }
-
-        const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
-        
-        user.avatar = avatarUrl;
-        await user.save();
-
+        const avatarUrl = await userService.updateUserAvatar(req.user.id, req.file.filename);
         res.status(200).json({
             success: true,
             message: "Avatar updated successfully",
@@ -98,8 +49,21 @@ const updateUserAvatar = async (req, res, next) => {
     }
 };
 
+const changePassword = async (req, res, next) => {
+    try {
+        await userService.changePassword(req.user.id, req.body);
+        res.status(200).json({
+            success: true,
+            message: "Password changed successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getUserProfile,
     updateUserProfile,
-    updateUserAvatar
+    updateUserAvatar,
+    changePassword
 };
