@@ -1,12 +1,14 @@
 const Tag = require("../models/Tag");
 
+const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const getTags = async (query) => {
     const filter = {};
     if (query.active !== undefined) {
         filter.isActive = query.active === "true";
     }
     if (query.search) {
-        filter.name = new RegExp(query.search.trim(), "i");
+        filter.name = new RegExp(escapeRegExp(query.search.trim()), "i");
     }
     return Tag.find(filter).sort({ name: 1 });
 };

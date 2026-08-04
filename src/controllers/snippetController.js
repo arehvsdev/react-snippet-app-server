@@ -180,7 +180,8 @@ const addComment = async (req, res, next) => {
  */
 const updateComment = async (req, res, next) => {
     try {
-        const comment = await snippetService.updateComment(req.params.id, req.body.content, req.user.id);
+        const commentId = req.params.commentId || req.params.id;
+        const comment = await snippetService.updateComment(commentId, req.body.content, req.user.id);
         res.status(200).json({
             success: true,
             message: "Comment updated successfully",
@@ -197,7 +198,8 @@ const updateComment = async (req, res, next) => {
  */
 const deleteComment = async (req, res, next) => {
     try {
-        await snippetService.deleteComment(req.params.id, req.user);
+        const commentId = req.params.commentId || req.params.id;
+        await snippetService.deleteComment(commentId, req.user);
         res.status(200).json({
             success: true,
             message: "Comment deleted successfully"
@@ -230,7 +232,8 @@ const toggleSnippetLike = async (req, res, next) => {
  */
 const toggleCommentLike = async (req, res, next) => {
     try {
-        const result = await snippetService.toggleCommentLike(req.params.id, req.user.id);
+        const commentId = req.params.commentId || req.params.id;
+        const result = await snippetService.toggleCommentLike(commentId, req.user.id);
         res.status(200).json({
             success: true,
             message: result.liked ? "Comment liked" : "Comment unliked",
