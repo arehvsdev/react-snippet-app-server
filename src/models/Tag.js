@@ -1,3 +1,7 @@
+/**
+ * Tag Database Model
+ * Stores tags used for filtering and organizing code snippets.
+ */
 const mongoose = require("mongoose");
 
 const tagSchema = new mongoose.Schema({

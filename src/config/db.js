@@ -1,5 +1,13 @@
+/**
+ * Database Connection Module
+ * Establishes connection to MongoDB database using Mongoose.
+ */
 const mongoose = require("mongoose");
 
+/**
+ * Connects to MongoDB database using environment variable MONGO_URI.
+ * Terminates process on connection failure.
+ */
 const connectDB = async () => {
     try {
         const conn = await mongoose.connect(process.env.MONGO_URI);
@@ -11,4 +19,4 @@ const connectDB = async () => {
     }
 };
 
-module.exports = connectDB;
+module.exports = connectDB;

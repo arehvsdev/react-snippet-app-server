@@ -1,3 +1,7 @@
+/**
+ * Category Database Model
+ * Represents snippet category classifications managed by administrators.
+ */
 const mongoose = require("mongoose");
 
 const categorySchema = new mongoose.Schema({

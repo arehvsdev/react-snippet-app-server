@@ -1,9 +1,14 @@
+/**
+ * Express Application Configuration
+ * Sets up middleware (CORS, Helmet, Rate Limiting, Body Parser), API route endpoints, Swagger docs, and error handling.
+ */
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 
+// Import Route Handlers
 const authRoutes = require("./routes/authRoutes");
 const snippetRoutes = require("./routes/snippetRoutes");
 const adminRoutes = require("./routes/adminRoutes");
@@ -19,6 +24,7 @@ const errorHandler = require("./middleware/errorHandler");
 
 const app = express();
 
+// Swagger Documentation setup
 const swaggerUi = require('swagger-ui-express');
 const swaggerDocument = require('../swagger.json');
 
@@ -27,7 +33,7 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS Configuration
+// CORS Configuration (Allow frontend origin and local dev ports)
 const allowedOrigins = process.env.CLIENT_URL ? [process.env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"] : ["http://localhost:5173", "http://localhost:3000"];
 app.use(cors({
     origin: (origin, callback) => {
@@ -40,7 +46,7 @@ app.use(cors({
     credentials: true
 }));
 
-// Rate Limiting Middlewares
+// Rate Limiting Middlewares to prevent abuse
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
     max: 30, // 30 requests per window
@@ -57,15 +63,19 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 
+// Apply rate limiting
 app.use("/api/auth", authLimiter);
 app.use("/api/", apiLimiter);
 
+// Body Parsing & Static File Serving
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
+// Swagger UI Route
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// API Endpoint Routes
 app.use("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/snippets", snippetRoutes);
@@ -77,6 +87,7 @@ app.use("/api/languages", languageRoutes);
 app.use("/api/tags", tagRoutes);
 app.use("/api/users", userRoutes);
 
+// Root healthcheck endpoint
 app.get("/", (req, res) => {
     res.json({
         success: true,
@@ -84,6 +95,7 @@ app.get("/", (req, res) => {
     });
 });
 
+// 404 & Global Error Middleware
 app.use(notFound);
 app.use(errorHandler);
 

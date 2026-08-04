@@ -1,6 +1,13 @@
+/**
+ * Snippet Controller Module
+ * Express route handlers for snippet CRUD, bookmarking, commenting, and liking.
+ */
 const snippetService = require("../services/snippetService");
 const jwt = require("jsonwebtoken");
 
+/**
+ * Utility helper to decode user payload from authorization header safely without throwing.
+ */
 const getDecodedUser = (req) => {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
@@ -14,6 +21,9 @@ const getDecodedUser = (req) => {
     return null;
 };
 
+/**
+ * Creates a new code snippet for authenticated user.
+ */
 const createSnippet = async (req, res, next) => {
     try {
         const snippet = await snippetService.createSnippet(req.body, req.user.id);
@@ -28,6 +38,9 @@ const createSnippet = async (req, res, next) => {
     }
 };
 
+/**
+ * Updates an existing code snippet.
+ */
 const updateSnippet = async (req, res, next) => {
     try {
         const updatedSnippet = await snippetService.updateSnippet(req.params.id, req.body, req.user.id);
@@ -42,6 +55,9 @@ const updateSnippet = async (req, res, next) => {
     }
 };
 
+/**
+ * Retrieves paginated list of code snippets with optional filters (category, language, tag, search query).
+ */
 const getSnippets = async (req, res, next) => {
     try {
         const decodedUser = getDecodedUser(req);
@@ -57,6 +73,9 @@ const getSnippets = async (req, res, next) => {
     }
 };
 
+/**
+ * Fetches single snippet detail by ID and increments view count.
+ */
 const getSnippetById = async (req, res, next) => {
     try {
         const decodedUser = getDecodedUser(req);
@@ -71,6 +90,9 @@ const getSnippetById = async (req, res, next) => {
     }
 };
 
+/**
+ * Deletes snippet by ID (Owner or Admin only).
+ */
 const deleteSnippet = async (req, res, next) => {
     try {
         await snippetService.deleteSnippet(req.params.id, req.user);
@@ -83,6 +105,9 @@ const deleteSnippet = async (req, res, next) => {
     }
 };
 
+/**
+ * Toggles bookmark status of a snippet for the logged-in user.
+ */
 const toggleBookmark = async (req, res, next) => {
     try {
         const result = await snippetService.toggleBookmark(req.params.id, req.user.id);
@@ -98,6 +123,9 @@ const toggleBookmark = async (req, res, next) => {
     }
 };
 
+/**
+ * Fetches all bookmarked snippets for the authenticated user.
+ */
 const getUserBookmarks = async (req, res, next) => {
     try {
         const result = await snippetService.getUserBookmarks(req.user.id, req.query);
@@ -112,6 +140,9 @@ const getUserBookmarks = async (req, res, next) => {
     }
 };
 
+/**
+ * Fetches comments for a specific snippet.
+ */
 const getComments = async (req, res, next) => {
     try {
         const decodedUser = getDecodedUser(req);
@@ -127,6 +158,9 @@ const getComments = async (req, res, next) => {
     }
 };
 
+/**
+ * Adds a new comment or reply to a snippet.
+ */
 const addComment = async (req, res, next) => {
     try {
         const comment = await snippetService.addComment(req.params.id, req.body, req.user.id);
@@ -141,6 +175,9 @@ const addComment = async (req, res, next) => {
     }
 };
 
+/**
+ * Updates content of an existing comment.
+ */
 const updateComment = async (req, res, next) => {
     try {
         const comment = await snippetService.updateComment(req.params.id, req.body.content, req.user.id);
@@ -155,6 +192,9 @@ const updateComment = async (req, res, next) => {
     }
 };
 
+/**
+ * Deletes a comment.
+ */
 const deleteComment = async (req, res, next) => {
     try {
         await snippetService.deleteComment(req.params.id, req.user);
@@ -167,6 +207,9 @@ const deleteComment = async (req, res, next) => {
     }
 };
 
+/**
+ * Toggles like status on a snippet.
+ */
 const toggleSnippetLike = async (req, res, next) => {
     try {
         const result = await snippetService.toggleSnippetLike(req.params.id, req.user.id);
@@ -182,6 +225,9 @@ const toggleSnippetLike = async (req, res, next) => {
     }
 };
 
+/**
+ * Toggles like status on a comment.
+ */
 const toggleCommentLike = async (req, res, next) => {
     try {
         const result = await snippetService.toggleCommentLike(req.params.id, req.user.id);

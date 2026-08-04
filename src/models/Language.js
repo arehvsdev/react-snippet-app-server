@@ -1,3 +1,7 @@
+/**
+ * Language Database Model
+ * Represents programming language options and icons for snippet syntax highlighting.
+ */
 const mongoose = require("mongoose");
 
 const languageSchema = new mongoose.Schema({

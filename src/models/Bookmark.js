@@ -1,3 +1,7 @@
+/**
+ * Bookmark Database Model
+ * Tracks user-saved snippets for personal quick access and reference.
+ */
 const mongoose = require("mongoose");
 
 const bookmarkSchema = new mongoose.Schema({

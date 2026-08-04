@@ -1,5 +1,13 @@
+/**
+ * Authentication and Authorization Middleware Module
+ * Provides JWT validation and role-based access control.
+ */
 const jwt = require("jsonwebtoken");
 
+/**
+ * Protect middleware: Verifies JWT session token in Authorization header.
+ * Attaches decoded user object to request upon successful authentication.
+ */
 const protect = (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -31,6 +39,9 @@ const protect = (req, res, next) => {
     }
 };
 
+/**
+ * AdminOnly middleware: Restricts route access to users with the 'admin' role.
+ */
 const adminOnly = (req, res, next) => {
     if (!req.user || req.user.role !== "admin") {
         return res.status(403).json({

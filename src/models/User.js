@@ -1,3 +1,7 @@
+/**
+ * User Database Model
+ * Represents registered user profiles, authentication credentials, roles, and status flags.
+ */
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
@@ -25,9 +29,9 @@ const userSchema = new mongoose.Schema({
     },
     phonenumber: {
         type: String,
-         required: function () {
-             return this.role !== "admin";
-         }
+        required: function () {
+            return this.role !== "admin";
+        }
     },
     role: {
         type: String,
@@ -57,6 +61,7 @@ const userSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Index for role-based querying
 userSchema.index({ role: 1 });
 
 module.exports = mongoose.model("User", userSchema);
