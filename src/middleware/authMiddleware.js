@@ -20,7 +20,11 @@ const protect = (req, res, next) => {
 
     const token = authHeader.split(" ")[1];
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "default_secret_key_change_in_production_12345");
+        const secret = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? undefined : "default_secret_key_change_in_production_12345");
+        if (!secret) {
+            throw new Error("JWT_SECRET is not configured");
+        }
+        const decoded = jwt.verify(token, secret);
         req.user = decoded; // { id, role, iat, exp }
         next();
     } catch (err) {

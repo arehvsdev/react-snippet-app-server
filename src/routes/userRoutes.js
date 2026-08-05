@@ -56,10 +56,13 @@ router.put("/change-password", validateChangePassword, changePassword);
 router.patch("/avatar", (req, res, next) => {
     upload.single("avatar")(req, res, (err) => {
         if (err) {
+            const errorMsg = err.code === "LIMIT_FILE_SIZE" 
+                ? "File size cannot exceed 2MB" 
+                : err.message;
             return res.status(400).json({
                 success: false,
-                message: "Avatar upload failed",
-                errors: [{ field: "avatar", message: err.message }]
+                message: "Validation failed",
+                errors: [{ field: "avatar", message: errorMsg }]
             });
         }
         next();

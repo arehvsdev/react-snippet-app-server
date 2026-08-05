@@ -32,7 +32,7 @@ const updateUserAvatar = async (req, res, next) => {
         if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: "No avatar image provided",
+                message: "Validation failed",
                 errors: [{ field: "avatar", message: "Please upload an image file" }]
             });
         }

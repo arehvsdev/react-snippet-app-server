@@ -19,6 +19,8 @@ const userRoutes = require("./routes/userRoutes");
 const healthRoutes = require("./routes/healthRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
+const paymentRoutes = require("./routes/paymentRoutes");
+const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -33,15 +35,20 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS Configuration (Allow frontend origin and local dev ports)
-const allowedOrigins = process.env.CLIENT_URL ? [process.env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"] : ["http://localhost:5173", "http://localhost:3000"];
+// CORS Configuration (Strict allowed origins in production, dev fallbacks in development)
+const allowedOrigins = process.env.NODE_ENV === "production"
+    ? (process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
+    : (process.env.CLIENT_URL ? [process.env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"] : ["http://localhost:5173", "http://localhost:3000"]);
+
 app.use(cors({
     origin: (origin, callback) => {
         if (!origin || allowedOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Fallback for dev convenience
+            return callback(null, true);
         }
+        if (process.env.NODE_ENV !== "production") {
+            return callback(null, true); // Dev convenience fallback
+        }
+        return callback(new Error("Not allowed by CORS"));
     },
     credentials: true
 }));
@@ -49,7 +56,7 @@ app.use(cors({
 // Rate Limiting Middlewares to prevent abuse
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 30, // 30 requests per window
+    max: process.env.NODE_ENV === "production" ? 30 : 300, // 30 in prod, 300 in dev for testing
     message: { success: false, message: "Too many authentication requests, please try again after 15 minutes." },
     standardHeaders: true,
     legacyHeaders: false
@@ -86,6 +93,9 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/languages", languageRoutes);
 app.use("/api/tags", tagRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/payment", paymentRoutes);
+app.use("/payment", paymentRoutes);
+app.use("/api/subscription", subscriptionRoutes);
 
 // Root healthcheck endpoint
 app.get("/", (req, res) => {

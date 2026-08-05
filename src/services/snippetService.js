@@ -10,6 +10,27 @@ const escapeRegExp = (string) => {
 
 const createSnippet = async (data, userId) => {
     const { title, description, language, code, tags, visibility, category } = data;
+    const targetVisibility = visibility || "public";
+
+    // Enforce private snippet limit for FREE plan users on backend
+    if (targetVisibility === "private") {
+        const user = await User.findById(userId);
+        const userPlan = user?.subscription?.plan || "FREE";
+
+        if (userPlan !== "PRO") {
+            const privateCount = await Snippet.countDocuments({
+                createdBy: userId,
+                visibility: "private"
+            });
+
+            if (privateCount >= 5) {
+                const error = new Error("Private snippet limit reached. Free plan users can create a maximum of 5 private snippets. Please upgrade to PRO for unlimited private storage.");
+                error.statusCode = 400;
+                throw error;
+            }
+        }
+    }
+
     return Snippet.create({
         title,
         description,
@@ -17,7 +38,7 @@ const createSnippet = async (data, userId) => {
         code,
         tags,
         category,
-        visibility: visibility || "public",
+        visibility: targetVisibility,
         createdBy: userId
     });
 };
@@ -34,6 +55,25 @@ const updateSnippet = async (id, data, userId) => {
         const error = new Error("Not authorised");
         error.statusCode = 403;
         throw error;
+    }
+
+    // Enforce private snippet limit if converting public to private
+    if (data.visibility === "private" && snippet.visibility !== "private") {
+        const user = await User.findById(userId);
+        const userPlan = user?.subscription?.plan || "FREE";
+
+        if (userPlan !== "PRO") {
+            const privateCount = await Snippet.countDocuments({
+                createdBy: userId,
+                visibility: "private"
+            });
+
+            if (privateCount >= 5) {
+                const error = new Error("Private snippet limit reached. Free plan users can create a maximum of 5 private snippets. Please upgrade to PRO for unlimited private storage.");
+                error.statusCode = 400;
+                throw error;
+            }
+        }
     }
 
     const allowedFields = ["title", "description", "language", "code", "tags", "visibility", "category"];
@@ -231,6 +271,9 @@ const getUserBookmarks = async (userId, query) => {
     const skip = (page - 1) * limit;
 
     const total = await Bookmark.countDocuments({ userId });
+    const allBookmarks = await Bookmark.find({ userId }).populate({ path: "snippetId", select: "language" }).lean();
+    const allLanguages = new Set(allBookmarks.map(b => b.snippetId?.language).filter(Boolean));
+
     const bookmarks = await Bookmark.find({ userId })
         .populate({
             path: "snippetId",
@@ -251,7 +294,7 @@ const getUserBookmarks = async (userId, query) => {
 
     return {
         snippets,
-        pagination: { total, page, limit, pages: Math.ceil(total / limit) }
+        pagination: { total, page, limit, pages: Math.ceil(total / limit), uniqueLanguages: allLanguages.size }
     };
 };
 

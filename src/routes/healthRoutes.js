@@ -12,10 +12,16 @@ router.get("/", (req, res) => {
     res.status(isHealthy ? 200 : 503).json({
         success: isHealthy,
         message: isHealthy ? "API is healthy" : "Database unavailable",
+        data: {
+            status: isHealthy ? "OK" : "ERROR",
+            timestamp: new Date().toISOString(),
+            uptime: process.uptime(),
+            database: DB_STATES[readyState] ?? "unknown"
+        },
         timestamp: new Date().toISOString(),
         uptime: process.uptime(),
         database: DB_STATES[readyState] ?? "unknown",
     });
-})
+});
 
 module.exports = router;

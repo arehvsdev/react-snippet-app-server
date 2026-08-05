@@ -29,7 +29,7 @@ const updateUserProfile = async (userId, data) => {
     if (phonenumber !== undefined) updateFields.phonenumber = phonenumber;
     if (bio !== undefined) updateFields.bio = bio;
 
-    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, { new: true, runValidators: true }).select("-password");
+    const updatedUser = await User.findByIdAndUpdate(userId, updateFields, { returnDocument: 'after', runValidators: true }).select("-password");
     if (!updatedUser) {
         const error = new Error("User not found");
         error.statusCode = 404;
@@ -40,7 +40,7 @@ const updateUserProfile = async (userId, data) => {
 
 const updateUserAvatar = async (userId, fileFilename) => {
     const avatarUrl = `/uploads/avatars/${fileFilename}`;
-    const user = await User.findByIdAndUpdate(userId, { avatar: avatarUrl }, { new: true }).select("-password");
+    const user = await User.findByIdAndUpdate(userId, { avatar: avatarUrl }, { returnDocument: 'after' }).select("-password");
     if (!user) {
         const error = new Error("User not found");
         error.statusCode = 404;
