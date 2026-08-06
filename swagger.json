@@ -2,7 +2,7 @@
   "openapi": "3.0.0",
   "info": {
     "title": "React Snippet App API",
-    "description": "API documentation for the React Snippet App backend server. Includes authentication, snippet management, and system health endpoints.",
+    "description": "Comprehensive OpenAPI documentation for the React Snippet App backend server. Supports user authentication, profile management, snippet CRUD, bookmarks, comments, admin features, and Razorpay payment integration for PRO subscriptions.",
     "version": "1.0.0"
   },
   "servers": [
@@ -11,9 +11,23 @@
       "description": "Local development server"
     }
   ],
+  "tags": [
+    { "name": "Health & Root", "description": "Server health status and basic check" },
+    { "name": "Authentication", "description": "User registration, authentication, email verification, and password reset" },
+    { "name": "Users", "description": "User profile management, avatar upload, and password update" },
+    { "name": "Snippets", "description": "Code snippet creation, listing, searching, editing, and deletion" },
+    { "name": "Bookmarks", "description": "Bookmark management for saved code snippets" },
+    { "name": "Comments", "description": "Snippet comments management" },
+    { "name": "Payment", "description": "Razorpay order creation, signature verification, and transaction history" },
+    { "name": "Subscription", "description": "User subscription plan management" },
+    { "name": "Dashboard", "description": "User dashboard metrics" },
+    { "name": "Taxonomies", "description": "Snippet Categories, Languages, and Tags management" },
+    { "name": "Admin", "description": "Administrator control panel, user management, and system stats" }
+  ],
   "paths": {
     "/": {
       "get": {
+        "tags": ["Health & Root"],
         "summary": "Check API status",
         "description": "Endpoint to verify if the Code Snippet API is running.",
         "responses": {
@@ -24,14 +38,8 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Code Snippet API Running"
-                    }
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Code Snippet API Running" }
                   }
                 }
               }
@@ -42,6 +50,7 @@
     },
     "/health": {
       "get": {
+        "tags": ["Health & Root"],
         "summary": "Health Check",
         "description": "Returns the status of the database connection, API timestamp, and server uptime.",
         "responses": {
@@ -52,24 +61,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "API is healthy"
-                    },
-                    "timestamp": {
-                      "type": "string",
-                      "format": "date-time",
-                      "example": "2026-06-19T11:54:47.000Z"
-                    },
-                    "uptime": {
-                      "type": "number",
-                      "format": "float",
-                      "example": 120.34
-                    }
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "API is healthy" },
+                    "timestamp": { "type": "string", "format": "date-time", "example": "2026-08-06T12:00:00.000Z" },
+                    "uptime": { "type": "number", "format": "float", "example": 120.34 }
                   }
                 }
               }
@@ -79,17 +74,38 @@
             "description": "Health check failed",
             "content": {
               "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/check-username": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Check Username Availability",
+        "description": "Verifies whether a given username is available for registration.",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "example": "johndoe" },
+            "description": "Username to check"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Username status",
+            "content": {
+              "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": false
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Health check failed"
-                    }
+                    "success": { "type": "boolean", "example": true },
+                    "available": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Username is available" }
                   }
                 }
               }
@@ -100,38 +116,27 @@
     },
     "/api/auth/register": {
       "post": {
+        "tags": ["Authentication"],
         "summary": "User Registration",
-        "description": "Registers a new user on the platform with email, password, and name.",
+        "description": "Registers a new user account.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "email",
-                  "password"
-                ],
+                "required": ["name", "email", "password"],
                 "properties": {
-                  "name": {
-                    "type": "string",
-                    "example": "John Doe"
-                  },
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "example": "john.doe@example.com"
-                  },
-                  "password": {
-                    "type": "string",
-                    "format": "password",
-                    "example": "securepassword123"
-                  }
+                  "name": { "type": "string", "example": "John Doe" },
+                  "username": { "type": "string", "example": "johndoe" },
+                  "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "Password123!" },
+                  "role": { "type": "string", "enum": ["developer", "student", "mentor", "recruiter"], "default": "developer" },
+                  "phoneNumber": { "type": "string", "example": "1234567890" }
                 }
               }
             }
-          },
-          "description": "User registration credentials"
+          }
         },
         "responses": {
           "201": {
@@ -139,9 +144,20 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/User"
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" },
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+                  }
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Validation error or email/username taken",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }
           }
         }
@@ -149,64 +165,254 @@
     },
     "/api/auth/login": {
       "post": {
+        "tags": ["Authentication"],
         "summary": "User Login",
-        "description": "Authenticates a user and returns a JSON Web Token (JWT).",
+        "description": "Authenticates a user with email and password and returns a JWT token.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "email",
-                  "password"
-                ],
+                "required": ["email", "password"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "example": "john.doe@example.com"
-                  },
-                  "password": {
-                    "type": "string",
-                    "format": "password",
-                    "example": "securepassword123"
-                  }
+                  "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                  "password": { "type": "string", "format": "password", "example": "Password123!" }
                 }
               }
             }
-          },
-          "description": "User credentials for authentication"
+          }
         },
         "responses": {
           "200": {
-            "description": "Authentication successful, returns JWT",
+            "description": "Authentication successful",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "token": {
-                      "type": "string",
-                      "description": "JWT Access Token",
-                      "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                    }
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" },
+                    "token": { "type": "string", "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
                   }
                 }
               }
             }
           },
-          "400": {
-            "description": "Invalid credentials",
+          "401": {
+            "description": "Invalid email or password",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/verify-email": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Verify Email for Password Reset",
+        "description": "Verifies if the email exists in the database prior to password reset.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john.doe@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Invalid Credentials"
-                    }
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Email verified successfully." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/reset-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Reset Password",
+        "description": "Resets the user's password after email verification.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "newPassword"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+                  "newPassword": { "type": "string", "format": "password", "example": "NewPassword123!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Password reset successfully." }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/profile": {
+      "get": {
+        "tags": ["Users"],
+        "summary": "Get User Profile",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User profile data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Users"],
+        "summary": "Update Profile Information",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "fullName": { "type": "string", "example": "Johnathan Doe" },
+                  "username": { "type": "string", "example": "johndoe_updated" },
+                  "phoneNumber": { "type": "string", "example": "9876543210" },
+                  "bio": { "type": "string", "example": "Full-stack developer passionate about clean code." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/avatar": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Upload Profile Avatar",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "format": "binary",
+                    "description": "Image file (PNG, JPG, JPEG, GIF, max 2MB)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar uploaded successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "avatarUrl": { "type": "string", "example": "/uploads/avatars/avatar-123456789.png" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/change-password": {
+      "post": {
+        "tags": ["Users"],
+        "summary": "Change User Password",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["currentPassword", "newPassword"],
+                "properties": {
+                  "currentPassword": { "type": "string", "format": "password", "example": "Password123!" },
+                  "newPassword": { "type": "string", "format": "password", "example": "NewPassword456!" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password changed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Password changed successfully." }
                   }
                 }
               }
@@ -217,19 +423,40 @@
     },
     "/api/snippets": {
       "get": {
-        "summary": "Get Snippets",
-        "description": "Retrieves the list of code snippets.",
+        "tags": ["Snippets"],
+        "summary": "List & Search Snippets",
+        "description": "Retrieves snippets with options for pagination, full-text search, language, tag, category, and user filters.",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "language", "in": "query", "schema": { "type": "string" } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" } },
+          { "name": "category", "in": "query", "schema": { "type": "string" } },
+          { "name": "userId", "in": "query", "schema": { "type": "string" } },
+          { "name": "visibility", "in": "query", "schema": { "type": "string", "enum": ["public", "private"] } }
+        ],
         "responses": {
           "200": {
-            "description": "Successfully retrieved snippets",
+            "description": "List of snippets retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Snippet retrieved successfully"
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Snippet" }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer", "example": 25 },
+                        "page": { "type": "integer", "example": 1 },
+                        "limit": { "type": "integer", "example": 10 },
+                        "pages": { "type": "integer", "example": 3 }
+                      }
                     }
                   }
                 }
@@ -239,29 +466,683 @@
         }
       },
       "post": {
+        "tags": ["Snippets"],
         "summary": "Create Snippet",
-        "description": "Creates a new code snippet.",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SnippetInput" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Snippet created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Snippet" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}": {
+      "get": {
+        "tags": ["Snippets"],
+        "summary": "Get Snippet by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snippet details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Snippet" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Snippets"],
+        "summary": "Update Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SnippetInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snippet updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Snippet" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Snippets"],
+        "summary": "Delete Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snippet deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Snippet deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}/bookmarks": {
+      "post": {
+        "tags": ["Bookmarks"],
+        "summary": "Toggle Bookmark on Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bookmark toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "isBookmarked": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Snippet bookmarked successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/my/bookmarks": {
+      "get": {
+        "tags": ["Bookmarks"],
+        "summary": "Get User Bookmarked Snippets",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bookmarked snippets retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Snippet" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}/comments": {
+      "get": {
+        "tags": ["Comments"],
+        "summary": "Get Comments for Snippet",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of comments",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Comment" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Comments"],
+        "summary": "Post Comment on Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SnippetInput"
+                "type": "object",
+                "required": ["comment"],
+                "properties": {
+                  "comment": { "type": "string", "example": "Great snippet! Helped solve my async issue." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Comment created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Comment" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payment/status": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Get Razorpay Config Status",
+        "description": "Returns whether Razorpay credentials are set up and if the server is in TEST or LIVE mode.",
+        "responses": {
+          "200": {
+            "description": "Razorpay configuration status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "configured": { "type": "boolean", "example": true },
+                    "mode": { "type": "string", "example": "TEST" },
+                    "keyId": { "type": "string", "example": "rzp_test_xxxxxxxxx" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payment/create-order": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Create Razorpay Payment Order",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "plan": { "type": "string", "enum": ["PRO"], "default": "PRO" }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Successfully created snippet",
+            "description": "Order created successfully",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "Snippet created successfully"
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Order created successfully" },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "orderId": { "type": "string", "example": "order_Px123456789" },
+                        "amount": { "type": "integer", "example": 49900 },
+                        "currency": { "type": "string", "example": "INR" },
+                        "keyId": { "type": "string", "example": "rzp_test_xxxxxxxxx" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payment/verify": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Verify Razorpay Payment Signature",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["orderId", "paymentId", "signature"],
+                "properties": {
+                  "orderId": { "type": "string", "example": "order_Px123456789" },
+                  "paymentId": { "type": "string", "example": "pay_Py987654321" },
+                  "signature": { "type": "string", "example": "c5f94b321a..." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment verified and PRO plan unlocked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Payment verified successfully. PRO plan activated!" },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payment/history": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Get Payment History",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment transaction history",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Payment" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscription": {
+      "get": {
+        "tags": ["Subscription"],
+        "summary": "Get Current Subscription",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User subscription information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "name": { "type": "string", "example": "John Doe" },
+                        "username": { "type": "string", "example": "johndoe" },
+                        "email": { "type": "string", "example": "john@example.com" },
+                        "subscription": {
+                          "type": "object",
+                          "properties": {
+                            "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" },
+                            "startDate": { "type": "string", "format": "date-time" },
+                            "endDate": { "type": "string", "format": "date-time" }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/stats": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get User Dashboard Stats",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User metrics overview",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalSnippets": { "type": "integer", "example": 12 },
+                        "totalBookmarks": { "type": "integer", "example": 5 },
+                        "snippetsByLanguage": { "type": "object", "example": { "javascript": 8, "python": 4 } }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Categories",
+        "responses": {
+          "200": {
+            "description": "List of snippet categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Category" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Taxonomies"],
+        "summary": "Create Category (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "Algorithms" },
+                  "description": { "type": "string", "example": "Data structures and algorithm implementations" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Category" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Languages",
+        "responses": {
+          "200": {
+            "description": "List of supported programming languages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Language" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Tags",
+        "responses": {
+          "200": {
+            "description": "List of all tags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Tag" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/stats": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Admin Platform Analytics",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Global analytics and platform statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalUsers": { "type": "integer", "example": 150 },
+                        "totalSnippets": { "type": "integer", "example": 620 },
+                        "proUsers": { "type": "integer", "example": 45 },
+                        "freeUsers": { "type": "integer", "example": 105 }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get All Users (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "search", "in": "query", "schema": { "type": "string" } },
+          { "name": "role", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}/role": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Update User Role (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["role"],
+                "properties": {
+                  "role": { "type": "string", "enum": ["developer", "student", "mentor", "recruiter", "admin"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User role updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Subscriptions (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "plan", "in": "query", "schema": { "type": "string", "enum": ["FREE", "PRO"] } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated subscriptions list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
                     }
                   }
                 }
@@ -278,95 +1159,114 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "Provide the JWT token in the format 'Bearer <token>'"
+        "description": "Provide the JWT access token in the header: 'Bearer <token>'"
       }
     },
     "schemas": {
       "User": {
         "type": "object",
         "properties": {
-          "_id": {
-            "type": "string",
-            "example": "65893a40498b3c3bc0cd32bb"
+          "_id": { "type": "string", "example": "65893a40498b3c3bc0cd32bb" },
+          "name": { "type": "string", "example": "John Doe" },
+          "username": { "type": "string", "example": "johndoe" },
+          "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
+          "role": { "type": "string", "example": "developer" },
+          "bio": { "type": "string", "example": "Full-stack developer" },
+          "avatar": { "type": "string", "example": "/uploads/avatars/avatar-123.png" },
+          "phoneNumber": { "type": "string", "example": "1234567890" },
+          "subscription": {
+            "type": "object",
+            "properties": {
+              "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" },
+              "startDate": { "type": "string", "format": "date-time" },
+              "endDate": { "type": "string", "format": "date-time" }
+            }
           },
-          "name": {
-            "type": "string",
-            "example": "John Doe"
-          },
-          "email": {
-            "type": "string",
-            "format": "email",
-            "example": "john.doe@example.com"
-          },
-          "password": {
-            "type": "string",
-            "description": "Hashed password of the user",
-            "example": "$2a$10$xyz..."
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-06-19T11:50:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "example": "2026-06-19T11:50:00.000Z"
-          }
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Snippet": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "65893a40498b3c3bc0cd32cc" },
+          "title": { "type": "string", "example": "Async Retry Helper" },
+          "description": { "type": "string", "example": "Utility function to retry failed requests." },
+          "language": { "type": "string", "example": "javascript" },
+          "code": { "type": "string", "example": "const retry = async () => { ... };" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["async", "javascript"] },
+          "visibility": { "type": "string", "enum": ["public", "private"], "example": "public" },
+          "createdBy": { "type": "string", "example": "65893a40498b3c3bc0cd32bb" },
+          "bookmarks": { "type": "array", "items": { "type": "string" } },
+          "createdAt": { "type": "string", "format": "date-time" }
         }
       },
       "SnippetInput": {
         "type": "object",
-        "required": [
-          "title",
-          "code"
-        ],
+        "required": ["title", "code"],
         "properties": {
-          "title": {
-            "type": "string",
-            "example": "Reverse a String in JS"
-          },
-          "description": {
-            "type": "string",
-            "example": "A quick utility function to reverse a string"
-          },
-          "language": {
-            "type": "string",
-            "example": "javascript"
-          },
-          "code": {
-            "type": "string",
-            "example": "const reverse = str => str.split('').reverse().join('');"
-          },
-          "tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "example": [
-              "string",
-              "utility"
-            ]
-          },
-          "category": {
-            "type": "string",
-            "description": "MongoDB ObjectId of the associated Category",
-            "example": "65893a40498b3c3bc0cd32cc"
-          },
-          "visibility": {
-            "type": "string",
-            "enum": [
-              "public",
-              "private"
-            ],
-            "default": "private",
-            "example": "public"
-          },
-          "createdBy": {
-            "type": "string",
-            "description": "MongoDB ObjectId of the associated User",
-            "example": "65893a40498b3c3bc0cd32bb"
-          }
+          "title": { "type": "string", "example": "Reverse a String in JS" },
+          "description": { "type": "string", "example": "A quick utility function to reverse a string" },
+          "language": { "type": "string", "example": "javascript" },
+          "code": { "type": "string", "example": "const reverse = str => str.split('').reverse().join('');" },
+          "tags": { "type": "array", "items": { "type": "string" }, "example": ["string", "utility"] },
+          "category": { "type": "string", "example": "65893a40498b3c3bc0cd32cc" },
+          "visibility": { "type": "string", "enum": ["public", "private"], "default": "public", "example": "public" }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "65893a40498b3c3bc0cd32dd" },
+          "snippet": { "type": "string", "example": "65893a40498b3c3bc0cd32cc" },
+          "user": { "$ref": "#/components/schemas/User" },
+          "comment": { "type": "string", "example": "Awesome snippet! Saved me time." },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "65893a40498b3c3bc0cd32ee" },
+          "user": { "type": "string", "example": "65893a40498b3c3bc0cd32bb" },
+          "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" },
+          "amount": { "type": "integer", "example": 49900 },
+          "currency": { "type": "string", "example": "INR" },
+          "orderId": { "type": "string", "example": "order_Px123456789" },
+          "paymentId": { "type": "string", "example": "pay_Py987654321" },
+          "status": { "type": "string", "enum": ["CREATED", "SUCCESS", "FAILED"], "example": "SUCCESS" },
+          "verified": { "type": "boolean", "example": true },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "Algorithms" },
+          "description": { "type": "string", "example": "Data Structures & Algorithms" }
+        }
+      },
+      "Language": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "JavaScript" },
+          "slug": { "type": "string", "example": "javascript" }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "name": { "type": "string", "example": "react" }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean", "example": false },
+          "message": { "type": "string", "example": "Error message description" }
         }
       }
     }

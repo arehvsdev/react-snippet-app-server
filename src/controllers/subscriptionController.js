@@ -1,3 +1,18 @@
+/**
+ * -------------------------------------------------------
+ * subscriptionController.js
+ * -------------------------------------------------------
+ * Handles subscription-related HTTP requests.
+ *
+ * Responsibilities:
+ * 1. Return the logged-in user's subscription details.
+ *
+ * Note:
+ * Business logic is implemented in subscriptionService.js.
+ * This controller only validates requests and
+ * returns HTTP responses.
+ * -------------------------------------------------------
+ */
 const subscriptionService = require("../services/subscriptionService");
 
 /**
@@ -6,11 +21,19 @@ const subscriptionService = require("../services/subscriptionService");
  */
 const getMySubscription = async (req, res, next) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated.",
+            });
+        }
+
         const user = await subscriptionService.getMySubscription(userId);
         return res.status(200).json({
             success: true,
-            data: user
+            message: "Subscription retrieved successfully.",
+            data: user,
         });
     } catch (error) {
         next(error);
@@ -18,5 +41,5 @@ const getMySubscription = async (req, res, next) => {
 };
 
 module.exports = {
-    getMySubscription
+    getMySubscription,
 };

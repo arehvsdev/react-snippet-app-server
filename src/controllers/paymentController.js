@@ -1,3 +1,19 @@
+/**
+ * -------------------------------------------------------
+ * paymentController.js
+ * -------------------------------------------------------
+ * Controller responsible for handling payment requests.
+ *
+ * Responsibilities
+ * 1. Return Razorpay configuration status
+ * 2. Create Razorpay Order
+ * 3. Verify Razorpay Payment
+ * 4. Return payment history
+ *
+ * This controller only handles HTTP requests.
+ * All business logic is implemented in paymentService.js.
+ * -------------------------------------------------------
+ */
 const paymentService = require("../services/paymentService");
 const subscriptionService = require("../services/subscriptionService");
 
@@ -23,12 +39,19 @@ const getStatus = async (req, res, next) => {
  */
 const getPaymentHistory = async (req, res, next) => {
     try {
-        const userId = req.user.id;
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+            });
+        }
+
         const result = await subscriptionService.getPaymentHistory(userId, req.query);
         return res.status(200).json({
             success: true,
             data: result.payments,
-            pagination: result.pagination
+            pagination: result.pagination,
         });
     } catch (error) {
         next(error);
@@ -42,17 +65,29 @@ const getPaymentHistory = async (req, res, next) => {
 const createOrder = async (req, res, next) => {
     try {
         const { plan = "PRO" } = req.body;
-        const userId = req.user ? req.user.id : null;
+        const userId = req.user?.id;
 
-        const orderData = await paymentService.createRazorpayOrder(userId, plan);
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+            });
+        }
+
+        const normalizedPlan = String(plan).toUpperCase();
+        if (!["FREE", "PRO"].includes(normalizedPlan)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid subscription plan.",
+            });
+        }
+
+        const order = await paymentService.createRazorpayOrder(userId, normalizedPlan);
 
         return res.status(200).json({
             success: true,
-            orderId: orderData.orderId,
-            amount: orderData.amount,
-            currency: orderData.currency,
-            keyId: orderData.keyId,
-            data: orderData,
+            message: "Order created successfully",
+            data: order,
         });
     } catch (error) {
         next(error);
@@ -65,16 +100,38 @@ const createOrder = async (req, res, next) => {
  */
 const verifyPayment = async (req, res, next) => {
     try {
+        const userId = req.user?.id;
         const { orderId, paymentId, signature } = req.body;
-        const userId = req.user ? req.user.id : null;
 
-        const result = await paymentService.verifyPayment(userId, { orderId, paymentId, signature });
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User not authenticated",
+            });
+        }
+
+        if (!orderId || !paymentId || !signature) {
+            return res.status(400).json({
+                success: false,
+                message: "Missing payment details",
+            });
+        }
+
+        const result = await paymentService.verifyPayment(userId, {
+            orderId,
+            paymentId,
+            signature,
+        });
 
         return res.status(200).json({
             success: true,
             message: "Payment verified successfully and PRO plan activated",
             data: result.user,
             subscription: result.subscription,
+            payment: {
+                orderId,
+                paymentId,
+            },
         });
     } catch (error) {
         next(error);

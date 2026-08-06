@@ -1,3 +1,18 @@
+/**
+ * -------------------------------------------------------
+ * subscriptionRoutes.js
+ * -------------------------------------------------------
+ * Defines all subscription-related API endpoints.
+ *
+ * Base Route:
+ * /api/subscription
+ *
+ * Protected Routes
+ * GET /              Get current user's subscription
+ *
+ * All routes require authentication.
+ * -------------------------------------------------------
+ */
 const express = require("express");
 const router = express.Router();
 const protect = require("../middleware/authMiddleware");

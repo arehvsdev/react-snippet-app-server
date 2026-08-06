@@ -1,32 +1,23 @@
-const Razorpay = require("razorpay");
+/**
+ * -------------------------------------------------------
+ * paymentService.js
+ * -------------------------------------------------------
+ * Handles Razorpay payment operations.
+ *
+ * Responsibilities:
+ * 1. Create Razorpay order
+ * 2. Verify Razorpay payment signature
+ * 3. Update user's subscription
+ * 4. Store payment details in MongoDB
+ *
+ * This implementation is intended for learning purposes.
+ * -------------------------------------------------------
+ */
+
 const crypto = require("crypto");
 const User = require("../models/User");
 const Payment = require("../models/Payment");
-
-let razorpayInstance = null;
-
-/**
- * Initializes and returns the Razorpay instance.
- */
-const getRazorpayInstance = () => {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
-
-    if (!keyId || !keySecret) {
-        const error = new Error("Razorpay credentials (RAZORPAY_KEY_ID / RAZORPAY_KEY_SECRET) are missing.");
-        error.statusCode = 500;
-        throw error;
-    }
-
-    if (!razorpayInstance) {
-        razorpayInstance = new Razorpay({
-            key_id: keyId,
-            key_secret: keySecret,
-        });
-    }
-
-    return razorpayInstance;
-};
+const { getRazorpayInstance, getRazorpayMode } = require("../config/razorpay");
 
 /**
  * Gets payment integration status details.
@@ -36,7 +27,7 @@ const getPaymentStatus = async () => {
     return {
         configured: Boolean(keyId && (process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET)),
         keyId: keyId || null,
-        mode: "test",
+        mode: getRazorpayMode(),
     };
 };
 
@@ -80,11 +71,11 @@ const createRazorpayOrder = async (userId, plan = "PRO") => {
         await Payment.create({
             user: userId,
             plan: "PRO",
-            amount: amount,
-            currency: currency,
+            amount,
+            currency,
             orderId: order.id,
             status: "CREATED",
-            gateway: "RAZORPAY"
+            gateway: "RAZORPAY",
         });
     }
 
@@ -101,7 +92,7 @@ const createRazorpayOrder = async (userId, plan = "PRO") => {
  */
 const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
     const secret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
-    const body = orderId + "|" + paymentId;
+    const body = `${orderId}|${paymentId}`;
     const expectedSignature = crypto
         .createHmac("sha256", secret)
         .update(body.toString())
@@ -136,7 +127,6 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
 
     const paymentDate = new Date();
 
-    // Update user profile subscription details
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -154,12 +144,13 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
         throw error;
     }
 
-    // Update Payment transaction status to SUCCESS
     await Payment.findOneAndUpdate(
         { orderId },
         {
             status: "SUCCESS",
-            paymentId: paymentId
+            paymentId,
+            verified: true,
+            signature,
         },
         { upsert: true, new: true }
     );
@@ -173,7 +164,6 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
 };
 
 module.exports = {
-    getRazorpayInstance,
     getPaymentStatus,
     createRazorpayOrder,
     verifyPayment,

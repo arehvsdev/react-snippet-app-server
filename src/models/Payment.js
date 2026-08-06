@@ -8,44 +8,52 @@ const paymentSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: true,
     },
     plan: {
         type: String,
         enum: ["FREE", "PRO"],
+        default: "PRO",
         required: true,
-        default: "PRO"
     },
     amount: {
         type: Number,
-        required: true
+        required: true,
     },
     currency: {
         type: String,
-        default: "INR"
+        default: "INR",
     },
-    paymentId: {
+    gateway: {
         type: String,
-        default: null
+        default: "RAZORPAY",
     },
     orderId: {
         type: String,
-        required: true
+        required: true,
+        unique: true,
+    },
+    paymentId: {
+        type: String,
+        default: null,
+    },
+    signature: {
+        type: String,
+        default: null,
     },
     status: {
         type: String,
         enum: ["CREATED", "SUCCESS", "FAILED"],
-        default: "CREATED"
+        default: "CREATED",
     },
-    gateway: {
-        type: String,
-        default: "RAZORPAY"
-    }
+    verified: {
+        type: Boolean,
+        default: false,
+    },
 }, {
-    timestamps: true
+    timestamps: true,
 });
 
-// Indexes for fast lookup by user, orderId, paymentId, status, and creation date
 paymentSchema.index({ user: 1 });
 paymentSchema.index({ orderId: 1 });
 paymentSchema.index({ paymentId: 1 });

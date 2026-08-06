@@ -1,3 +1,19 @@
+/**
+ * -------------------------------------------------------
+ * subscriptionService.js
+ * -------------------------------------------------------
+ * Handles subscription-related operations.
+ *
+ * Responsibilities:
+ * 1. Get logged-in user's subscription
+ * 2. Get payment history
+ * 3. Get all subscriptions (Admin)
+ *
+ * This service only communicates with MongoDB.
+ * Business logic related to payment is handled
+ * inside paymentService.js.
+ * -------------------------------------------------------
+ */
 const User = require("../models/User");
 const Payment = require("../models/Payment");
 
@@ -5,7 +21,7 @@ const Payment = require("../models/Payment");
  * Retrieves the current subscription details for the authenticated user.
  */
 const getMySubscription = async (userId) => {
-    const user = await User.findById(userId).select("subscription name email username");
+    const user = await User.findById(userId).select("name username email subscription");
     if (!user) {
         const error = new Error("User not found.");
         error.statusCode = 404;
@@ -18,8 +34,8 @@ const getMySubscription = async (userId) => {
  * Retrieves paginated payment history for the authenticated user.
  */
 const getPaymentHistory = async (userId, query = {}) => {
-    const page = Math.max(1, parseInt(query.page) || 1);
-    const limit = Math.min(50, parseInt(query.limit) || 10);
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(50, Number(query.limit) || 10);
     const skip = (page - 1) * limit;
 
     const filter = { user: userId };
@@ -30,7 +46,7 @@ const getPaymentHistory = async (userId, query = {}) => {
             .skip(skip)
             .limit(limit)
             .lean(),
-        Payment.countDocuments(filter)
+        Payment.countDocuments(filter),
     ]);
 
     return {
@@ -39,8 +55,8 @@ const getPaymentHistory = async (userId, query = {}) => {
             total,
             page,
             limit,
-            pages: Math.ceil(total / limit)
-        }
+            pages: Math.ceil(total / limit),
+        },
     };
 };
 
@@ -48,21 +64,24 @@ const getPaymentHistory = async (userId, query = {}) => {
  * Retrieves all user subscriptions with pagination for admin (all plans).
  */
 const getAllSubscriptions = async (query = {}) => {
-    const page = Math.max(1, parseInt(query.page) || 1);
-    const limit = Math.min(100, parseInt(query.limit) || 20);
+    const page = Math.max(1, Number(query.page) || 1);
+    const limit = Math.min(100, Number(query.limit) || 20);
     const skip = (page - 1) * limit;
-    const plan = query.plan ? String(query.plan).toUpperCase() : null;
+    const plan = query.plan && String(query.plan).toUpperCase();
 
-    const filter = plan ? { "subscription.plan": plan } : {};
+    const filter = {};
+    if (plan) {
+        filter["subscription.plan"] = plan;
+    }
 
     const [users, total] = await Promise.all([
         User.find(filter)
-            .select("name username email subscription createdAt role")
+            .select("name username email role subscription createdAt")
             .sort({ "subscription.plan": -1, createdAt: -1 })
             .skip(skip)
             .limit(limit)
             .lean(),
-        User.countDocuments(filter)
+        User.countDocuments(filter),
     ]);
 
     return {
@@ -71,13 +90,13 @@ const getAllSubscriptions = async (query = {}) => {
             total,
             page,
             limit,
-            pages: Math.ceil(total / limit)
-        }
+            pages: Math.ceil(total / limit),
+        },
     };
 };
 
 module.exports = {
     getMySubscription,
     getPaymentHistory,
-    getAllSubscriptions
+    getAllSubscriptions,
 };

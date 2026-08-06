@@ -3,6 +3,7 @@
  * Initializes environment variables, connects to database, and starts the Express server.
  */
 require("dotenv").config();
+const { validateRazorpayConfig } = require("./src/config/razorpay");
 
 // Verify critical environment variables before starting server
 if (process.env.NODE_ENV === "production") {
@@ -26,6 +27,9 @@ if (process.env.NODE_ENV === "production") {
     }
 }
 
+// Validate Razorpay configuration during server startup
+validateRazorpayConfig();
+
 const app = require("./src/app");
 const connectDB = require("./src/config/db");
 
@@ -39,4 +43,3 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
-

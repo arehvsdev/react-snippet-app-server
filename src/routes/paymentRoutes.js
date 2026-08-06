@@ -1,3 +1,22 @@
+/**
+ * -------------------------------------------------------
+ * paymentRoutes.js
+ * -------------------------------------------------------
+ * Defines all payment-related API endpoints.
+ *
+ * Base Route:
+ * /api/payment
+ *
+ * Public Routes
+ * GET    /status
+ *
+ * Protected Routes
+ * GET    /history
+ * POST   /create-order
+ * POST   /verify
+ *
+ * -------------------------------------------------------
+ */
 const express = require("express");
 const router = express.Router();
 const paymentController = require("../controllers/paymentController");
