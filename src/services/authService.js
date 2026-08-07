@@ -47,14 +47,28 @@ const login = async ({ email, password }) => {
         throw error;
     }
 
+    // Sign JWT with 24-hour expiration
     const token = jwt.sign(
         { id: user._id, role: user.role },
-        process.env.JWT_SECRET,
-        { expiresIn: "7d" }
+        process.env.JWT_SECRET || "default_secret_key_change_in_production_12345",
+        { expiresIn: "24h" }
     );
 
     const { password: _, ...userWithoutPassword } = user.toObject();
     return { token, user: userWithoutPassword };
+};
+
+/**
+ * Validates authenticated user token and returns profile details.
+ */
+const getMe = async (userId) => {
+    const user = await User.findById(userId).select("-password").lean();
+    if (!user || user.deleted || !user.active) {
+        const error = new Error("User not found or account disabled.");
+        error.statusCode = 401;
+        throw error;
+    }
+    return user;
 };
 
 const verifyEmail = async (email) => {
@@ -84,6 +98,7 @@ module.exports = {
     register,
     checkUsername,
     login,
+    getMe,
     verifyEmail,
     resetPassword
 };

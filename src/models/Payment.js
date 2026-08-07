@@ -1,63 +1,84 @@
 /**
- * Payment Database Model
- * Represents transactions for subscriptions, orders, and payment gateway responses.
+ * Payment Model
+ * Stores Razorpay payment information for educational purposes.
  */
+
 const mongoose = require("mongoose");
 
 const paymentSchema = new mongoose.Schema({
     user: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true,
+        required: true
     },
+
     plan: {
         type: String,
         enum: ["FREE", "PRO"],
         default: "PRO",
-        required: true,
+        required: true
     },
+
     amount: {
         type: Number,
-        required: true,
+        required: true
     },
+
     currency: {
         type: String,
-        default: "INR",
+        default: "INR"
     },
+
     gateway: {
         type: String,
-        default: "RAZORPAY",
+        default: "RAZORPAY"
     },
+
     orderId: {
         type: String,
         required: true,
-        unique: true,
+        unique: true
     },
+
     paymentId: {
         type: String,
-        default: null,
+        default: null
     },
+
     signature: {
         type: String,
-        default: null,
+        default: null
     },
+
     status: {
         type: String,
-        enum: ["CREATED", "SUCCESS", "FAILED"],
-        default: "CREATED",
+        enum: [
+            "CREATED",
+            "SUCCESS",
+            "FAILED"
+        ],
+        default: "CREATED"
     },
+
     verified: {
         type: Boolean,
-        default: false,
-    },
+        default: false
+    }
 }, {
-    timestamps: true,
+    timestamps: true
 });
 
-paymentSchema.index({ user: 1 });
-paymentSchema.index({ orderId: 1 });
-paymentSchema.index({ paymentId: 1 });
-paymentSchema.index({ status: 1 });
-paymentSchema.index({ createdAt: -1 });
+paymentSchema.index({
+    user: 1
+});
+paymentSchema.index({
+    paymentId: 1
+});
+paymentSchema.index({
+    status: 1
+});
+paymentSchema.index({
+    createdAt: -1
+});
 
 module.exports = mongoose.model("Payment", paymentSchema);

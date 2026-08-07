@@ -46,7 +46,7 @@ const getPaymentHistory = async (userId, query = {}) => {
             .skip(skip)
             .limit(limit)
             .lean(),
-        Payment.countDocuments(filter),
+        Payment.countDocuments(filter)
     ]);
 
     return {
@@ -55,8 +55,8 @@ const getPaymentHistory = async (userId, query = {}) => {
             total,
             page,
             limit,
-            pages: Math.ceil(total / limit),
-        },
+            pages: Math.ceil(total / limit)
+        }
     };
 };
 
@@ -69,6 +69,7 @@ const getAllSubscriptions = async (query = {}) => {
     const skip = (page - 1) * limit;
     const plan = query.plan && String(query.plan).toUpperCase();
 
+    // Build MongoDB filter
     const filter = {};
     if (plan) {
         filter["subscription.plan"] = plan;
@@ -76,12 +77,16 @@ const getAllSubscriptions = async (query = {}) => {
 
     const [users, total] = await Promise.all([
         User.find(filter)
-            .select("name username email role subscription createdAt")
-            .sort({ "subscription.plan": -1, createdAt: -1 })
+            .select(
+                "name username email role subscription createdAt"
+            )
+            .sort({ 
+                "subscription.plan": -1, createdAt: -1 
+            })
             .skip(skip)
             .limit(limit)
             .lean(),
-        User.countDocuments(filter),
+        User.countDocuments(filter)
     ]);
 
     return {
@@ -90,13 +95,13 @@ const getAllSubscriptions = async (query = {}) => {
             total,
             page,
             limit,
-            pages: Math.ceil(total / limit),
-        },
+            pages: Math.ceil(total / limit)
+        }
     };
 };
 
 module.exports = {
     getMySubscription,
     getPaymentHistory,
-    getAllSubscriptions,
+    getAllSubscriptions
 };

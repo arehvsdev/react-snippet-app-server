@@ -55,6 +55,31 @@ const login = async (req, res, next) => {
 };
 
 /**
+ * GET /api/auth/me
+ * Validates current JWT token and returns authenticated user profile.
+ */
+const getMe = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authorized, no session token provided"
+            });
+        }
+        const user = await authService.getMe(userId);
+        res.status(200).json({
+            success: true,
+            message: "User profile retrieved successfully",
+            data: user,
+            user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
  * Verifies if user email exists in database.
  */
 const verifyEmail = async (req, res, next) => {
@@ -88,6 +113,7 @@ module.exports = {
     register,
     login,
     checkUsername,
+    getMe,
     verifyEmail,
     resetPassword
 };

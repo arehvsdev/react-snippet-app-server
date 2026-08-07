@@ -71,11 +71,11 @@ const createRazorpayOrder = async (userId, plan = "PRO") => {
         await Payment.create({
             user: userId,
             plan: "PRO",
-            amount,
-            currency,
+            amount: amount,
+            currency: currency,
             orderId: order.id,
             status: "CREATED",
-            gateway: "RAZORPAY",
+            gateway: "RAZORPAY"
         });
     }
 
@@ -92,7 +92,7 @@ const createRazorpayOrder = async (userId, plan = "PRO") => {
  */
 const verifyRazorpaySignature = ({ orderId, paymentId, signature }) => {
     const secret = process.env.RAZORPAY_KEY_SECRET || process.env.RAZORPAY_SECRET;
-    const body = `${orderId}|${paymentId}`;
+    const body = orderId + "|" + paymentId;
     const expectedSignature = crypto
         .createHmac("sha256", secret)
         .update(body.toString())
@@ -127,6 +127,7 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
 
     const paymentDate = new Date();
 
+    // Update user profile subscription details
     const updatedUser = await User.findByIdAndUpdate(
         userId,
         {
@@ -144,13 +145,12 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
         throw error;
     }
 
+    // Update Payment transaction status to SUCCESS
     await Payment.findOneAndUpdate(
         { orderId },
         {
             status: "SUCCESS",
-            paymentId,
-            verified: true,
-            signature,
+            paymentId: paymentId
         },
         { upsert: true, new: true }
     );
@@ -164,6 +164,7 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
 };
 
 module.exports = {
+    getRazorpayInstance,
     getPaymentStatus,
     createRazorpayOrder,
     verifyPayment,

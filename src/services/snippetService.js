@@ -452,6 +452,23 @@ const toggleCommentLike = async (commentId, userId) => {
     return { liked, likes: totalLikes };
 };
 
+/**
+ * Calculates logged-in user snippet metrics (total, public, private, bookmarks).
+ */
+const getMySnippetStats = async (userId) => {
+    const total = await Snippet.countDocuments({ createdBy: userId });
+    const publicCount = await Snippet.countDocuments({ createdBy: userId, visibility: "public" });
+    const privateCount = await Snippet.countDocuments({ createdBy: userId, visibility: "private" });
+    const bookmarks = await Bookmark.countDocuments({ userId });
+
+    return {
+        total,
+        public: publicCount,
+        private: privateCount,
+        bookmarks
+    };
+};
+
 module.exports = {
     createSnippet,
     updateSnippet,
@@ -465,5 +482,6 @@ module.exports = {
     updateComment,
     deleteComment,
     toggleSnippetLike,
-    toggleCommentLike
+    toggleCommentLike,
+    getMySnippetStats
 };

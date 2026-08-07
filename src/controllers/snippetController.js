@@ -246,6 +246,22 @@ const toggleCommentLike = async (req, res, next) => {
     }
 };
 
+/**
+ * GET /api/snippets/my/stats
+ * Retrieves authenticated user's snippet statistics (total, public, private, bookmarks).
+ */
+const getMySnippetStats = async (req, res, next) => {
+    try {
+        const stats = await snippetService.getMySnippetStats(req.user.id);
+        res.status(200).json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     createSnippet,
     updateSnippet,
@@ -259,5 +275,6 @@ module.exports = {
     updateComment,
     deleteComment,
     toggleSnippetLike,
-    toggleCommentLike
+    toggleCommentLike,
+    getMySnippetStats
 };

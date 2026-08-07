@@ -14,7 +14,8 @@ const {
     toggleSnippetLike,
     toggleCommentLike,
     updateComment,
-    deleteComment
+    deleteComment,
+    getMySnippetStats
 } = require("../controllers/snippetController");
 const {
     mongoIdParam,
@@ -28,6 +29,7 @@ const {
 
 router.get("/", validateSnippetList, getSnippets);
 router.get("/my/bookmarks", protect, getUserBookmarks); // Place before /:id to prevent "my" from being treated as an ID
+router.get("/my/stats", protect, getMySnippetStats); // Place before /:id to prevent "my" from being treated as an ID
 
 // Comment sub-routes (Must be placed before /:id to prevent "comments" from being matched as a snippet ID)
 router.put("/comments/:commentId", protect, mongoIdParam("commentId"), validateCommentBody, updateComment);

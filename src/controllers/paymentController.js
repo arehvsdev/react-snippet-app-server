@@ -39,19 +39,12 @@ const getStatus = async (req, res, next) => {
  */
 const getPaymentHistory = async (req, res, next) => {
     try {
-        const userId = req.user?.id;
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                message: "User not authenticated",
-            });
-        }
-
+        const userId = req.user.id;
         const result = await subscriptionService.getPaymentHistory(userId, req.query);
         return res.status(200).json({
             success: true,
             data: result.payments,
-            pagination: result.pagination,
+            pagination: result.pagination
         });
     } catch (error) {
         next(error);
@@ -64,30 +57,31 @@ const getPaymentHistory = async (req, res, next) => {
  */
 const createOrder = async (req, res, next) => {
     try {
+        // Default plan is PRO
         const { plan = "PRO" } = req.body;
-        const userId = req.user?.id;
+        const userId = req.user ? req.user.id : null;
 
-        if (!userId) {
+        // Basic validation
+        if( !userId){
             return res.status(401).json({
                 success: false,
-                message: "User not authenticated",
+                message: "User not authenticated"
             });
         }
 
-        const normalizedPlan = String(plan).toUpperCase();
-        if (!["FREE", "PRO"].includes(normalizedPlan)) {
+        if( !["FREE", "PRO"].includes(plan.toUpperCase())){
             return res.status(400).json({
                 success: false,
-                message: "Invalid subscription plan.",
+                message: "Invalid subscription plan."
             });
         }
 
-        const order = await paymentService.createRazorpayOrder(userId, normalizedPlan);
+        const order = await paymentService.createRazorpayOrder(userId, plan);
 
         return res.status(200).json({
             success: true,
             message: "Order created successfully",
-            data: order,
+            data: order
         });
     } catch (error) {
         next(error);
@@ -103,25 +97,21 @@ const verifyPayment = async (req, res, next) => {
         const userId = req.user?.id;
         const { orderId, paymentId, signature } = req.body;
 
-        if (!userId) {
-            return res.status(401).json({
-                success: false,
-                message: "User not authenticated",
-            });
-        }
-
-        if (!orderId || !paymentId || !signature) {
+        // Validate request body
+        if( !orderId || !paymentId || !signature){
             return res.status(400).json({
                 success: false,
-                message: "Missing payment details",
+                message: "Missing payment details"
             });
         }
-
-        const result = await paymentService.verifyPayment(userId, {
-            orderId,
-            paymentId,
-            signature,
-        });
+        const result = await paymentService.verifyPayment(
+            userId, 
+            { 
+                orderId, 
+                paymentId, 
+                signature 
+            }
+        );
 
         return res.status(200).json({
             success: true,
@@ -130,8 +120,8 @@ const verifyPayment = async (req, res, next) => {
             subscription: result.subscription,
             payment: {
                 orderId,
-                paymentId,
-            },
+                paymentId
+            }
         });
     } catch (error) {
         next(error);
