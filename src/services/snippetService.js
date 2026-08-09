@@ -12,22 +12,31 @@ const createSnippet = async (data, userId) => {
     const { title, description, language, code, tags, visibility, category } = data;
     const targetVisibility = visibility || "public";
 
+    const user = await User.findById(userId);
+    const userPlan = user?.subscription?.plan || "FREE";
+
+    // Enforce total snippet limit for FREE plan users (max 3)
+    if (userPlan !== "PRO") {
+        const totalCount = await Snippet.countDocuments({ createdBy: userId });
+
+        if (totalCount >= 3) {
+            const error = new Error("Snippet limit reached. Free plan users can create a maximum of 3 snippets. Please upgrade to PRO for unlimited snippets.");
+            error.statusCode = 400;
+            throw error;
+        }
+    }
+
     // Enforce private snippet limit for FREE plan users on backend
-    if (targetVisibility === "private") {
-        const user = await User.findById(userId);
-        const userPlan = user?.subscription?.plan || "FREE";
+    if (targetVisibility === "private" && userPlan !== "PRO") {
+        const privateCount = await Snippet.countDocuments({
+            createdBy: userId,
+            visibility: "private"
+        });
 
-        if (userPlan !== "PRO") {
-            const privateCount = await Snippet.countDocuments({
-                createdBy: userId,
-                visibility: "private"
-            });
-
-            if (privateCount >= 5) {
-                const error = new Error("Private snippet limit reached. Free plan users can create a maximum of 5 private snippets. Please upgrade to PRO for unlimited private storage.");
-                error.statusCode = 400;
-                throw error;
-            }
+        if (privateCount >= 5) {
+            const error = new Error("Private snippet limit reached. Free plan users can create a maximum of 5 private snippets. Please upgrade to PRO for unlimited private storage.");
+            error.statusCode = 400;
+            throw error;
         }
     }
 
