@@ -4,10 +4,6 @@ const requiredEnv = [
     "RAZORPAY_KEY_SECRET"
 ]
 
-requiredEnv.forEach(item => {
-    console.log(`${process.env[item]}`);
-
-})
 const missing = requiredEnv.filter((key) => !process.env[key]);
 
 if (missing.length > 0) {

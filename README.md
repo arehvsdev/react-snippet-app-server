@@ -1,4 +1,4 @@
-# React Snippet App Server 🚀
+# SnipForge Server 🚀
 
 A feature-rich, secure Node.js & Express RESTful API server for managing code snippets, user authentication, profile management, bookmarks, comments, admin administration, and Razorpay payment integration for PRO subscription plans.
 

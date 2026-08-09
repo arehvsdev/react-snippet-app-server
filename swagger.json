@@ -1,8 +1,8 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "React Snippet App API",
-    "description": "Comprehensive OpenAPI documentation for the React Snippet App backend server. Supports user authentication, profile management, snippet CRUD, bookmarks, comments, admin features, and Razorpay payment integration for PRO subscriptions.",
+    "title": "SnipForge API",
+    "description": "Comprehensive OpenAPI documentation for the SnipForge backend server. Supports user authentication, profile management, snippet CRUD, bookmarks, comments, admin features, and Razorpay payment integration for PRO subscriptions.",
     "version": "1.0.0"
   },
   "servers": [
