@@ -4,9 +4,13 @@ const requiredEnv = [
     "RAZORPAY_KEY_SECRET"
 ]
 
-const missing = requiredEnv.filter( (key) => !process.env[key]);
+requiredEnv.forEach(item => {
+    console.log(`${process.env[item]}`);
 
-if(missing.length > 0){
+})
+const missing = requiredEnv.filter((key) => !process.env[key]);
+
+if (missing.length > 0) {
     throw new Error(
         `Missing Razorpay environment variables`
     );
