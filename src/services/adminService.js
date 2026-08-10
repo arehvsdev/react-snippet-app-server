@@ -150,13 +150,27 @@ const getUserById = async (id) => {
     return user;
 };
 
-const deleteAnySnippet = async (id) => {
+const deleteAnySnippet = async (id, adminUser = null) => {
     const snippet = await Snippet.findByIdAndDelete(id);
     if (!snippet) {
         const error = new Error("Snippet not found");
         error.statusCode = 404;
         throw error;
     }
+
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId: adminUser ? adminUser.id : null,
+        actionType: "snippet_delete",
+        description: `Admin deleted snippet: "${snippet.title}"`,
+        details: {
+            snippetId: id,
+            title: snippet.title,
+            language: snippet.language,
+            deletedByAdmin: true
+        }
+    });
+
     return true;
 };
 

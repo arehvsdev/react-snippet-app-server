@@ -160,11 +160,13 @@ const getRecommendedSnippetsForUser = async (userId, query = {}) => {
     }
 
     const isBookmarked = bookmarkedIds.includes(String(snippet._id));
+    const isLiked = likedIds.includes(String(snippet._id));
 
     return {
       ...snippet,
       id: String(snippet._id),
       isBookmarked,
+      isLiked,
       recommendationScore: Math.round(score * 10) / 10,
     };
   });

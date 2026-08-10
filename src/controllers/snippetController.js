@@ -9,11 +9,13 @@ const jwt = require("jsonwebtoken");
  * Utility helper to decode user payload from authorization header safely without throwing.
  */
 const getDecodedUser = (req) => {
+    if (req.user) return req.user;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith("Bearer ")) {
         const token = authHeader.split(" ")[1];
         try {
-            return jwt.verify(token, process.env.JWT_SECRET);
+            const secret = process.env.JWT_SECRET || "default_secret_key_change_in_production_12345";
+            return jwt.verify(token, secret);
         } catch (err) {
             return null;
         }

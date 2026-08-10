@@ -64,7 +64,16 @@ const createRazorpayOrder = async (userId, plan = "PRO") => {
         },
     };
 
-    const order = await instance.orders.create(options);
+    let order;
+    try {
+        order = await instance.orders.create(options);
+    } catch (err) {
+        console.error("Razorpay order creation failed:", err);
+        const errorMessage = err.error?.description || err.message || "Failed to create order with Razorpay";
+        const error = new Error(errorMessage);
+        error.statusCode = err.statusCode || 500;
+        throw error;
+    }
 
     // Persist Payment transaction record in database
     if (userId) {
@@ -146,7 +155,7 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
     }
 
     // Update Payment transaction status to SUCCESS
-    await Payment.findOneAndUpdate(
+    const paymentRecord = await Payment.findOneAndUpdate(
         { orderId },
         {
             status: "SUCCESS",
@@ -154,6 +163,22 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
         },
         { upsert: true, new: true }
     );
+
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId: updatedUser._id,
+        actionType: "payment",
+        description: `Payment verified for PRO plan upgrade: ₹199 (Payment ID: ${paymentId})`,
+        details: {
+            orderId,
+            paymentId,
+            amount: paymentRecord?.amount || 19900,
+            currency: paymentRecord?.currency || "INR",
+            plan: "PRO",
+            userEmail: updatedUser.email,
+            userName: updatedUser.name
+        }
+    });
 
     return {
         user: updatedUser,

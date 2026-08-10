@@ -157,21 +157,13 @@ class CommentAnalysisService {
         });
       }
 
-      // Weighted Recommendation Score Formula (35% Sentiment, 25% Helpfulness, 20% Likes, 15% Bookmarks, 5% Recency)
+      // Recommendation Score Formula based STRICTLY on Comment Sentiment (60%) and Likes (40%)
       const normSentiment = (avgSentiment + 1) / 2; // Maps [-1, 1] -> [0, 1]
-      const normHelpfulness = Math.min(1.0, Math.max(0, avgHelpfulness));
       const normLikes = Math.min(1.0, Math.log((snippet.likes || 0) + 1) / Math.log(50));
-      const normBookmarks = Math.min(1.0, Math.log((snippet.bookmarksCount || 0) + 1) / Math.log(30));
-
-      const ageInDays = (Date.now() - new Date(snippet.createdAt).getTime()) / (1000 * 60 * 60 * 24);
-      const normRecency = Math.max(0, 1.0 - (ageInDays / 30));
 
       const compositeScore = (
-        0.35 * normSentiment +
-        0.25 * normHelpfulness +
-        0.20 * normLikes +
-        0.15 * normBookmarks +
-        0.05 * normRecency
+        0.60 * normSentiment +
+        0.40 * normLikes
       ) * 100;
 
       const finalScore = Math.round(compositeScore * 10) / 10;

@@ -13,7 +13,8 @@ const {
     updateUserRole,
     toggleUserStatus,
     deleteUser,
-    deleteAnySnippet
+    deleteAnySnippet,
+    getActivityLogs
 } = require("../controllers/adminController");
 const {
     getAllSubscriptions,
@@ -25,6 +26,9 @@ const { mongoIdParam } = require("../middleware/validators");
 // Secure all admin routes with authentication and role-based authorization
 router.use(protect);
 router.use(isAdmin);
+
+/** GET /api/admin/logs — list system activity audit logs */
+router.get("/logs", getActivityLogs);
 
 /** GET /api/admin/users — list all users with pagination, filters, and search */
 router.get("/users", getUsers);

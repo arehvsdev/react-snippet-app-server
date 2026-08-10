@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const Snippet = require("../models/Snippet");
 const Bookmark = require("../models/Bookmark");
 const Comment = require("../models/Comment");
@@ -90,7 +91,7 @@ const createSnippet = async (data, userId) => {
         await autoSaveNewTags(tags, userId);
     }
 
-    return Snippet.create({
+    const createdSnippet = await Snippet.create({
         title,
         description,
         language,
@@ -100,6 +101,21 @@ const createSnippet = async (data, userId) => {
         visibility: targetVisibility,
         createdBy: userId
     });
+
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId,
+        actionType: "snippet_create",
+        description: `Created new snippet: "${createdSnippet.title}" (${createdSnippet.language})`,
+        details: {
+            snippetId: createdSnippet._id,
+            title: createdSnippet.title,
+            language: createdSnippet.language,
+            visibility: createdSnippet.visibility
+        }
+    });
+
+    return createdSnippet;
 };
 
 const updateSnippet = async (id, data, userId) => {
@@ -153,35 +169,88 @@ const updateSnippet = async (id, data, userId) => {
         await autoSaveNewTags(data.tags, userId);
     }
 
-    return snippet.save();
+    const updatedSnippet = await snippet.save();
+
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId,
+        actionType: "snippet_edit",
+        description: `Edited snippet: "${updatedSnippet.title}"`,
+        details: {
+            snippetId: updatedSnippet._id,
+            title: updatedSnippet.title,
+            language: updatedSnippet.language,
+            visibility: updatedSnippet.visibility
+        }
+    });
+
+    return updatedSnippet;
 };
 
 const getSnippets = async (query, decodedUser) => {
-    const allowedConditions = [{ visibility: "public" }];
-    if (decodedUser && decodedUser.id) {
-        allowedConditions.push({ visibility: "private", createdBy: decodedUser.id });
+    let isProUser = false;
+    if (decodedUser) {
+        const role = String(decodedUser.role || "").toLowerCase();
+        const tokenPlan = String(decodedUser.plan || "").toUpperCase();
+        if (tokenPlan === "PRO" || role === "admin" || role === "pro") {
+            isProUser = true;
+        } else {
+            const uid = decodedUser.id || decodedUser._id || decodedUser.userId;
+            if (uid) {
+                const dbUser = await User.findById(uid).select("subscription role").lean();
+                if (dbUser) {
+                    const plan = (dbUser.subscription?.plan || "").toUpperCase();
+                    const userRole = (dbUser.role || "").toLowerCase();
+                    if (plan === "PRO" || userRole === "admin" || userRole === "pro") {
+                        isProUser = true;
+                    }
+                }
+            }
+        }
     }
 
-    const filter = { $and: [{ $or: allowedConditions }] };
-    const { userId, visibility, search, language, category, tags, author } = query;
+    const { userId, excludeUserId, excludeSelf, visibility, search, language, category, tags, author } = query;
+    const normVisibility = visibility ? String(visibility).toLowerCase().trim() : "";
+
+    const filter = { $and: [] };
+
+    // 1. Visibility & Permission Scoping
+    if (normVisibility === "private") {
+        if (isProUser) {
+            filter.$and.push({ visibility: "private" });
+        } else if (decodedUser && (decodedUser.id || decodedUser._id)) {
+            const uid = decodedUser.id || decodedUser._id;
+            filter.$and.push({ visibility: "private", createdBy: uid });
+        } else {
+            return {
+                snippets: [],
+                pagination: { total: 0, page: Math.max(1, Number(query.page) || 1), limit: Number(query.limit) || 10, pages: 0 }
+            };
+        }
+    } else if (normVisibility === "public") {
+        filter.$and.push({ visibility: "public" });
+    } else {
+        const allowedConditions = [{ visibility: "public" }];
+        if (isProUser) {
+            allowedConditions.push({ visibility: "private" });
+        } else if (decodedUser && (decodedUser.id || decodedUser._id)) {
+            const uid = decodedUser.id || decodedUser._id;
+            allowedConditions.push({ visibility: "private", createdBy: uid });
+        }
+        filter.$and.push({ $or: allowedConditions });
+    }
 
     if (userId) filter.$and.push({ createdBy: userId });
+    if (excludeUserId && !isProUser && !category && !language && !search && !tags && !author && !normVisibility) {
+        filter.$and.push({ createdBy: { $ne: excludeUserId } });
+    }
+    if (excludeSelf && decodedUser && decodedUser.id && !category && !language && !search && !tags && !author && !visibility) {
+        filter.$and.push({ createdBy: { $ne: decodedUser.id } });
+    }
 
-    if (visibility) {
-        if (visibility === "private") {
-            if (!decodedUser || !decodedUser.id) {
-                const error = new Error("Authentication required to view private snippets");
-                error.statusCode = 401;
-                throw error;
-            }
-            if (userId && userId !== decodedUser.id) {
-                const error = new Error("Not authorized to view another user's private snippets");
-                error.statusCode = 403;
-                throw error;
-            }
-            filter.$and.push({ createdBy: decodedUser.id });
-        }
-        filter.$and.push({ visibility });
+    if (language && String(language).trim()) {
+        const langRegex = new RegExp(`^${escapeRegExp(String(language).trim())}$`, "i");
+        filter.$and.push({ language: langRegex });
     }
 
     if (search && search.trim()) {
@@ -194,37 +263,63 @@ const getSnippets = async (query, decodedUser) => {
                     { title: wordRegex },
                     { description: wordRegex },
                     { code: wordRegex },
-                    { tags: wordRegex }
+                    { tags: wordRegex },
+                    { language: wordRegex }
                 ]
             });
         });
     }
 
     if (category) {
-        const catDoc = await Category.findById(category).lean();
-        if (catDoc) {
-            const catRegex = new RegExp(`^${escapeRegExp(catDoc.name.trim())}$`, "i");
-            filter.$and.push({
-                $or: [
-                    { category: catDoc._id },
-                    { language: catRegex },
-                    { tags: catRegex }
-                ]
-            });
+        let catId = null;
+        let catName = String(category).trim();
+
+        if (mongoose.Types.ObjectId.isValid(category)) {
+            catId = category;
+            const catDoc = await Category.findById(category).lean();
+            if (catDoc) {
+                catName = catDoc.name.trim();
+            }
         } else {
-            filter.$and.push({ category });
+            const catDoc = await Category.findOne({ name: new RegExp(`^${escapeRegExp(catName)}$`, "i") }).lean();
+            if (catDoc) {
+                catId = catDoc._id;
+                catName = catDoc.name.trim();
+            }
         }
+
+        // Exact string match regex so "Java" does NOT match "JavaScript"
+        const exactCatRegex = new RegExp(`^${escapeRegExp(catName)}$`, "i");
+        const categoryOrConditions = [
+            { language: exactCatRegex },
+            { tags: exactCatRegex }
+        ];
+
+        if (catId) {
+            categoryOrConditions.unshift({ category: catId });
+        }
+
+        filter.$and.push({ $or: categoryOrConditions });
     }
 
     if (tags) {
-        const tagList = Array.isArray(tags) ? tags : String(tags).split(",").map(t => t.trim()).filter(Boolean);
+        const tagList = (Array.isArray(tags) ? tags : String(tags).split(","))
+            .map(t => String(t).trim().replace(/^#/, ''))
+            .filter(Boolean);
         if (tagList.length > 0) {
-            filter.$and.push({ tags: { $in: tagList } });
+            const tagRegexes = tagList.map(t => new RegExp(`^#?${escapeRegExp(t)}$`, "i"));
+            filter.$and.push({ tags: { $in: tagRegexes } });
         }
     }
 
-    if (author) {
-        const authorUser = await User.findOne({ username: new RegExp(`^${escapeRegExp(author.trim())}$`, "i") });
+    if (author && String(author).trim()) {
+        const safeAuthor = escapeRegExp(String(author).trim());
+        const authorUser = await User.findOne({
+            $or: [
+                { username: new RegExp(`^${safeAuthor}$`, "i") },
+                { name: new RegExp(`^${safeAuthor}$`, "i") }
+            ]
+        });
         if (authorUser) {
             filter.$and.push({ createdBy: authorUser._id });
         } else {
@@ -255,15 +350,21 @@ const getSnippets = async (query, decodedUser) => {
 
     const snippetIds = snippets.map(s => s._id);
     let bookmarkedSet = new Set();
+    let likedSet = new Set();
     if (decodedUser && decodedUser.id && snippetIds.length > 0) {
-        const userBookmarks = await Bookmark.find({ userId: decodedUser.id, snippetId: { $in: snippetIds } }).select("snippetId").lean();
+        const [userBookmarks, userLikes] = await Promise.all([
+            Bookmark.find({ userId: decodedUser.id, snippetId: { $in: snippetIds } }).select("snippetId").lean(),
+            Like.find({ userId: decodedUser.id, targetId: { $in: snippetIds }, targetType: "Snippet" }).select("targetId").lean()
+        ]);
         bookmarkedSet = new Set(userBookmarks.map(b => String(b.snippetId)));
+        likedSet = new Set(userLikes.map(l => String(l.targetId)));
     }
 
     snippets.forEach(s => {
         s.id = String(s._id);
         s.recommendationScore = s.ai?.recommendationScore ?? s.aiRecommendationScore ?? 0;
         s.isBookmarked = bookmarkedSet.has(String(s._id));
+        s.isLiked = likedSet.has(String(s._id));
     });
 
     return {
@@ -284,7 +385,15 @@ const getSnippetById = async (id, decodedUser) => {
     }
 
     if (snippet.visibility === "private") {
-        if (!decodedUser || String(snippet.createdBy._id || snippet.createdBy) !== String(decodedUser.id)) {
+        let isProUser = false;
+        if (decodedUser && decodedUser.id) {
+            const dbUser = await User.findById(decodedUser.id).select("subscription role").lean();
+            if (dbUser && (dbUser.subscription?.plan === "PRO" || dbUser.role === "admin" || dbUser.role === "pro")) {
+                isProUser = true;
+            }
+        }
+
+        if (!isProUser && (!decodedUser || String(snippet.createdBy._id || snippet.createdBy) !== String(decodedUser.id))) {
             const error = new Error("Not authorized to access this private snippet");
             error.statusCode = 403;
             throw error;
@@ -296,10 +405,15 @@ const getSnippetById = async (id, decodedUser) => {
 
     const snippetObj = snippet.toObject();
     if (decodedUser && decodedUser.id) {
-        const isBookmarked = await Bookmark.exists({ userId: decodedUser.id, snippetId: snippet._id });
+        const [isBookmarked, isLiked] = await Promise.all([
+            Bookmark.exists({ userId: decodedUser.id, snippetId: snippet._id }),
+            Like.exists({ userId: decodedUser.id, targetId: snippet._id, targetType: "Snippet" })
+        ]);
         snippetObj.isBookmarked = !!isBookmarked;
+        snippetObj.isLiked = !!isLiked;
     } else {
         snippetObj.isBookmarked = false;
+        snippetObj.isLiked = false;
     }
 
     return snippetObj;
@@ -326,6 +440,19 @@ const deleteSnippet = async (id, user) => {
     await Bookmark.deleteMany({ snippetId: id });
     await Comment.deleteMany({ snippetId: id });
     await Like.deleteMany({ targetId: id, targetType: "Snippet" });
+
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId: user.id,
+        actionType: "snippet_delete",
+        description: `Deleted snippet: "${snippet.title}"`,
+        details: {
+            snippetId: id,
+            title: snippet.title,
+            language: snippet.language,
+            deletedByRole: user.role
+        }
+    });
 
     return true;
 };
@@ -377,10 +504,22 @@ const getUserBookmarks = async (userId, query) => {
         .limit(limit)
         .lean();
 
-    const snippets = bookmarks
+    const rawSnippets = bookmarks
         .map(b => b.snippetId)
-        .filter(Boolean)
-        .map(s => ({ ...s, isBookmarked: true }));
+        .filter(Boolean);
+
+    const snippetIds = rawSnippets.map(s => s._id);
+    let likedSet = new Set();
+    if (userId && snippetIds.length > 0) {
+        const userLikes = await Like.find({ userId, targetId: { $in: snippetIds }, targetType: "Snippet" }).select("targetId").lean();
+        likedSet = new Set(userLikes.map(l => String(l.targetId)));
+    }
+
+    const snippets = rawSnippets.map(s => ({
+        ...s,
+        isBookmarked: true,
+        isLiked: likedSet.has(String(s._id))
+    }));
 
     return {
         snippets,
@@ -445,6 +584,37 @@ const addComment = async (snippetId, { content, parentId }, userId) => {
         snippetId,
         content,
         parentId: parentId || null
+    });
+
+    // Trigger notification for snippet creator if not self-commenting
+    const snippetObj = await Snippet.findById(snippetId).populate("createdBy", "name username");
+    if (snippetObj && String(snippetObj.createdBy._id || snippetObj.createdBy) !== String(userId)) {
+        const commentUser = await User.findById(userId);
+        const commenterName = commentUser?.name || "A developer";
+        const notificationService = require("./notificationService");
+        await notificationService.createNotification({
+            recipient: snippetObj.createdBy._id || snippetObj.createdBy,
+            sender: userId,
+            type: "comment",
+            title: "New Comment on Your Snippet",
+            message: `${commenterName} commented on your snippet "${snippetObj.title}"`,
+            link: "/snippet-feed",
+            snippetId: snippetId
+        });
+    }
+
+    // Trigger activity log for comment
+    const activityLogService = require("./activityLogService");
+    await activityLogService.logActivity({
+        userId,
+        actionType: "snippet_comment",
+        description: `Added comment on snippet: "${snippet.title}"`,
+        details: {
+            snippetId,
+            snippetTitle: snippet.title,
+            commentId: comment._id,
+            excerpt: content.length > 60 ? content.substring(0, 60) + "..." : content
+        }
     });
 
     // Trigger non-blocking asynchronous background AI analysis via Hugging Face pipeline

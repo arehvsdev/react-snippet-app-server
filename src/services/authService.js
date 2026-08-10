@@ -16,6 +16,30 @@ const register = async ({ name, username, email, password, role, phonenumber }) 
         role: userRole
     });
 
+    // Trigger welcome notification for newly registered user
+    const notificationService = require("./notificationService");
+    const activityLogService = require("./activityLogService");
+
+    await notificationService.createNotification({
+        recipient: user._id,
+        type: "welcome",
+        title: `Welcome to SnipForge, ${user.name}! 🎉`,
+        message: "Thank you for joining SnipForge! Explore public code snippets, build your library, and share code with developers.",
+        link: "/snippet-feed"
+    });
+
+    await activityLogService.logActivity({
+        userId: user._id,
+        actionType: "user_register",
+        description: `New user registered: ${user.name} (@${user.username})`,
+        details: {
+            name: user.name,
+            username: user.username,
+            email: user.email,
+            role: user.role
+        }
+    });
+
     const { password: _, ...userWithoutPassword } = user.toObject();
     return userWithoutPassword;
 };

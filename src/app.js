@@ -22,6 +22,7 @@ const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
 const recommendationRoutes = require("./routes/recommendationRoutes");
+const notificationRoutes = require("./routes/notificationRoutes");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -98,6 +99,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/payment", paymentRoutes);
 app.use("/payment", paymentRoutes);
 app.use("/api/subscription", subscriptionRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 // Root healthcheck endpoint
 app.get("/", (req, res) => {

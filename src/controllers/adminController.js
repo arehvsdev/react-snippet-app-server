@@ -131,10 +131,25 @@ const getUserById = async (req, res, next) => {
 
 const deleteAnySnippet = async (req, res, next) => {
     try {
-        await adminService.deleteAnySnippet(req.params.id);
+        await adminService.deleteAnySnippet(req.params.id, req.user);
         res.status(200).json({
             success: true,
             message: "Snippet deleted successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getActivityLogs = async (req, res, next) => {
+    try {
+        const activityLogService = require("../services/activityLogService");
+        const result = await activityLogService.getActivityLogs(req.query);
+        res.status(200).json({
+            success: true,
+            data: result.logs,
+            logs: result.logs,
+            pagination: result.pagination
         });
     } catch (error) {
         next(error);
@@ -152,5 +167,6 @@ module.exports = {
     updateUserRole,
     toggleUserStatus,
     deleteUser,
-    deleteAnySnippet
+    deleteAnySnippet,
+    getActivityLogs
 };

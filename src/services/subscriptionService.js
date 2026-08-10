@@ -38,7 +38,11 @@ const getPaymentHistory = async (userId, query = {}) => {
     const limit = Math.min(50, Number(query.limit) || 10);
     const skip = (page - 1) * limit;
 
-    const filter = { user: userId };
+    // Only include finalized payments (SUCCESS or FAILED) and exclude CREATED or PENDING orders
+    const filter = {
+        user: userId,
+        status: { $in: ["SUCCESS", "FAILED", "success", "failed", "COMPLETED", "PAID"] }
+    };
 
     const [payments, total] = await Promise.all([
         Payment.find(filter)
