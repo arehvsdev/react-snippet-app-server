@@ -56,6 +56,26 @@ const snippetSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    aiRecommendationScore: {
+        type: Number,
+        default: 0,
+        index: true
+    },
+    aiMetrics: {
+        avgSentiment: { type: Number, default: 0 },
+        avgHelpfulness: { type: Number, default: 0 },
+        avgToxicity: { type: Number, default: 0 },
+        analyzedCommentCount: { type: Number, default: 0 }
+    },
+    ai: {
+        recommendationScore: { type: Number, default: 0 },
+        sentimentScore: { type: Number, default: 0 },
+        helpfulnessScore: { type: Number, default: 0 },
+        toxicityScore: { type: Number, default: 0 },
+        positiveComments: { type: Number, default: 0 },
+        negativeComments: { type: Number, default: 0 },
+        lastAnalyzed: { type: Date, default: null }
+    },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
@@ -73,6 +93,7 @@ snippetSchema.index({ category: 1 });
 snippetSchema.index({ language: 1 });
 snippetSchema.index({ tags: 1 });
 snippetSchema.index({ createdAt: -1 });
+snippetSchema.index({ aiRecommendationScore: -1 });
 snippetSchema.index({ title: "text", description: "text", code: "text" });
 
 module.exports = mongoose.model("Snippet", snippetSchema);

@@ -21,6 +21,7 @@ const dashboardRoutes = require("./routes/dashboardRoutes");
 const adminDashboardRoutes = require("./routes/adminDashboardRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const subscriptionRoutes = require("./routes/subscriptionRoutes");
+const recommendationRoutes = require("./routes/recommendationRoutes");
 const notFound = require("./middleware/notFound");
 const errorHandler = require("./middleware/errorHandler");
 
@@ -86,6 +87,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use("/health", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/snippets", snippetRoutes);
+app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/dashboard", dashboardRoutes);

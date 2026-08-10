@@ -8,9 +8,55 @@ const escapeRegExp = (string) => {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 };
 
+const Tag = require("../models/Tag");
+const Category = require("../models/Category");
+const commentAnalysisService = require("./commentAnalysisService");
+
+/**
+ * Automatically checks and saves any new tags attached to a snippet into the Tag collection,
+ * so they are persisted in DB and available for future snippet creation autocomplete.
+ */
+const autoSaveNewTags = async (tags, userId) => {
+    if (!Array.isArray(tags) || tags.length === 0) return;
+    
+    const tagColors = ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6", "#EC4899", "#14B8A6", "#F97316", "#06B6D4"];
+
+    for (let rawTag of tags) {
+        if (typeof rawTag !== "string") continue;
+        const cleanedName = rawTag.trim().toLowerCase().replace(/^#/, '');
+        if (!cleanedName) continue;
+
+        try {
+            const existing = await Tag.findOne({ name: cleanedName });
+            if (!existing) {
+                const randomColor = tagColors[Math.floor(Math.random() * tagColors.length)];
+                await Tag.create({
+                    name: cleanedName,
+                    color: randomColor,
+                    isActive: true,
+                    createdBy: userId
+                });
+                console.log(`Auto-persisted new tag in DB: #${cleanedName}`);
+            }
+        } catch (err) {
+            if (err.code !== 11000) {
+                console.error(`Error auto-saving tag ${cleanedName}:`, err);
+            }
+        }
+    }
+};
+
 const createSnippet = async (data, userId) => {
     const { title, description, language, code, tags, visibility, category } = data;
     const targetVisibility = visibility || "public";
+
+    let targetCategory = category;
+    if (!targetCategory && language) {
+        const matchedCat = await Category.findOne({ name: new RegExp(`^${escapeRegExp(language.trim())}$`, "i") });
+        if (matchedCat) {
+            targetCategory = matchedCat._id;
+        }
+    }
 
     const user = await User.findById(userId);
     const userPlan = user?.subscription?.plan || "FREE";
@@ -40,13 +86,17 @@ const createSnippet = async (data, userId) => {
         }
     }
 
+    if (tags && Array.isArray(tags)) {
+        await autoSaveNewTags(tags, userId);
+    }
+
     return Snippet.create({
         title,
         description,
         language,
         code,
         tags,
-        category,
+        category: targetCategory,
         visibility: targetVisibility,
         createdBy: userId
     });
@@ -91,6 +141,17 @@ const updateSnippet = async (id, data, userId) => {
             snippet[field] = data[field];
         }
     });
+
+    if (!snippet.category && snippet.language) {
+        const matchedCat = await Category.findOne({ name: new RegExp(`^${escapeRegExp(snippet.language.trim())}$`, "i") });
+        if (matchedCat) {
+            snippet.category = matchedCat._id;
+        }
+    }
+
+    if (data.tags && Array.isArray(data.tags)) {
+        await autoSaveNewTags(data.tags, userId);
+    }
 
     return snippet.save();
 };
@@ -139,8 +200,21 @@ const getSnippets = async (query, decodedUser) => {
         });
     }
 
-    if (language) filter.$and.push({ language: new RegExp(`^${escapeRegExp(language.trim())}$`, "i") });
-    if (category) filter.$and.push({ category });
+    if (category) {
+        const catDoc = await Category.findById(category).lean();
+        if (catDoc) {
+            const catRegex = new RegExp(`^${escapeRegExp(catDoc.name.trim())}$`, "i");
+            filter.$and.push({
+                $or: [
+                    { category: catDoc._id },
+                    { language: catRegex },
+                    { tags: catRegex }
+                ]
+            });
+        } else {
+            filter.$and.push({ category });
+        }
+    }
 
     if (tags) {
         const tagList = Array.isArray(tags) ? tags : String(tags).split(",").map(t => t.trim()).filter(Boolean);
@@ -162,8 +236,11 @@ const getSnippets = async (query, decodedUser) => {
     const limit = parseInt(query.limit, 10) || 10;
     const skip = (page - 1) * limit;
 
-    const allowedSortFields = ["createdAt", "likes", "views", "bookmarksCount", "title"];
-    const sortBy = allowedSortFields.includes(query.sortBy) ? query.sortBy : "createdAt";
+    const allowedSortFields = ["createdAt", "likes", "views", "bookmarksCount", "title", "aiScore", "aiRecommendationScore"];
+    let sortBy = "aiRecommendationScore";
+    if (query.sortBy && allowedSortFields.includes(query.sortBy)) {
+        sortBy = (query.sortBy === "aiScore" || query.sortBy === "aiRecommendationScore") ? "aiRecommendationScore" : query.sortBy;
+    }
     const sortOrder = query.sortOrder === "asc" ? 1 : -1;
     const sort = { [sortBy]: sortOrder };
 
@@ -176,14 +253,18 @@ const getSnippets = async (query, decodedUser) => {
         .limit(limit)
         .lean();
 
-    if (decodedUser && decodedUser.id) {
-        const snippetIds = snippets.map(s => s._id);
+    const snippetIds = snippets.map(s => s._id);
+    let bookmarkedSet = new Set();
+    if (decodedUser && decodedUser.id && snippetIds.length > 0) {
         const userBookmarks = await Bookmark.find({ userId: decodedUser.id, snippetId: { $in: snippetIds } }).select("snippetId").lean();
-        const bookmarkedSet = new Set(userBookmarks.map(b => String(b.snippetId)));
-        snippets.forEach(s => {
-            s.isBookmarked = bookmarkedSet.has(String(s._id));
-        });
+        bookmarkedSet = new Set(userBookmarks.map(b => String(b.snippetId)));
     }
+
+    snippets.forEach(s => {
+        s.id = String(s._id);
+        s.recommendationScore = s.ai?.recommendationScore ?? s.aiRecommendationScore ?? 0;
+        s.isBookmarked = bookmarkedSet.has(String(s._id));
+    });
 
     return {
         snippets,
@@ -364,6 +445,11 @@ const addComment = async (snippetId, { content, parentId }, userId) => {
         snippetId,
         content,
         parentId: parentId || null
+    });
+
+    // Trigger non-blocking asynchronous background AI analysis via Hugging Face pipeline
+    setImmediate(() => {
+        commentAnalysisService.analyzeCommentInBackground(comment._id, snippetId);
     });
 
     return Comment.findById(comment._id).populate("userId", "name username avatar");

@@ -83,7 +83,13 @@ JWT_EXPIRES_IN=7d
 # Razorpay Payment Gateway Keys (Optional / Required for Payments)
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxx
 RAZORPAY_KEY_SECRET=xxxxxx_your_secret_xxxxxx
+
+# Hugging Face AI Integration Keys (Optional / Fallback Enabled)
+HUGGINGFACE_API_KEY=your_huggingface_api_token_here
+HUGGINGFACE_MODEL=cardiffnlp/twitter-roberta-base-sentiment-latest
 ```
+
+> **Note on Secrets**: All Hugging Face settings are loaded dynamically via `src/config/huggingFaceConfig.js`. No credentials or model secrets are ever hardcoded in source files.
 
 ---
 

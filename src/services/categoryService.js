@@ -1,11 +1,23 @@
 const Category = require("../models/Category");
 const Snippet = require("../models/Snippet");
 
+function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 const getCategories = async () => {
     const categories = await Category.find().sort({ name: 1 }).lean();
     const categoriesWithCount = await Promise.all(
         categories.map(async (cat) => {
-            const count = await Snippet.countDocuments({ category: cat._id, visibility: "public" });
+            const catRegex = new RegExp(`^${escapeRegExp(cat.name.trim())}$`, "i");
+            const count = await Snippet.countDocuments({
+                visibility: "public",
+                $or: [
+                    { category: cat._id },
+                    { language: catRegex },
+                    { tags: catRegex }
+                ]
+            });
             return { ...cat, count };
         })
     );
@@ -19,7 +31,15 @@ const getCategoryById = async (id) => {
         error.statusCode = 404;
         throw error;
     }
-    const count = await Snippet.countDocuments({ category: id, visibility: "public" });
+    const catRegex = new RegExp(`^${escapeRegExp(category.name.trim())}$`, "i");
+    const count = await Snippet.countDocuments({
+        visibility: "public",
+        $or: [
+            { category: id },
+            { language: catRegex },
+            { tags: catRegex }
+        ]
+    });
     return { ...category, count };
 };
 

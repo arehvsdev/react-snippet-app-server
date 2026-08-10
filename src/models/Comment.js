@@ -8,7 +8,14 @@ const commentSchema = new mongoose.Schema({
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     snippetId: { type: mongoose.Schema.Types.ObjectId, ref: 'Snippet', required: true },
     content: { type: String, required: true, trim: true },
-    parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null }
+    parentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Comment', default: null },
+    aiAnalysis: {
+        sentiment: { type: Number, default: 0 },
+        helpfulness: { type: Number, default: 0 },
+        toxicity: { type: Number, default: 0 },
+        status: { type: String, enum: ["pending", "completed", "failed"], default: "pending" },
+        analyzedAt: { type: Date }
+    }
 }, {
     timestamps: true
 });
