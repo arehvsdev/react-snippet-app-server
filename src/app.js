@@ -37,23 +37,62 @@ app.use(helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// CORS Configuration (Strict allowed origins in production, dev fallbacks in development)
-const allowedOrigins = process.env.NODE_ENV === "production"
-    ? (process.env.CLIENT_URL ? [process.env.CLIENT_URL] : [])
-    : (process.env.CLIENT_URL ? [process.env.CLIENT_URL, "http://localhost:5173", "http://localhost:3000"] : ["http://localhost:5173", "http://localhost:3000"]);
+// Helper to parse comma-separated CLIENT_URL environment variables and sanitize trailing slashes
+const getParsedClientUrls = () => {
+    if (!process.env.CLIENT_URL) return [];
+    return process.env.CLIENT_URL
+        .split(",")
+        .map((url) => url.trim().replace(/\/+$/, ""))
+        .filter(Boolean);
+};
 
-app.use(cors({
-    origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin)) {
-            return callback(null, true);
-        }
-        if (process.env.NODE_ENV !== "production") {
-            return callback(null, true); // Dev convenience fallback
-        }
-        return callback(new Error("Not allowed by CORS"));
-    },
-    credentials: true
-}));
+// Default allowed origins list ensuring Vercel production frontend and local dev environments are supported
+const defaultAllowedOrigins = [
+    "https://react-snippet-app.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://localhost:5000"
+];
+
+// Combine default origins with any custom CLIENT_URL entries set in environment
+const allowedOrigins = Array.from(
+    new Set([...defaultAllowedOrigins, ...getParsedClientUrls()])
+);
+
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            // Allow server-to-server, mobile, curl, or same-origin requests with no origin header
+            if (!origin) {
+                return callback(null, true);
+            }
+
+            // Normalize origin by stripping trailing slashes if present
+            const normalizedOrigin = origin.replace(/\/+$/, "");
+
+            // Check exact match in configured allowed origins
+            if (allowedOrigins.includes(normalizedOrigin)) {
+                return callback(null, true);
+            }
+
+            // Allow any Vercel deployment preview/production URL matching react-snippet-app*.vercel.app
+            const isVercelDomain = /^https:\/\/react-snippet-app[a-zA-Z0-9-]*\.vercel\.app$/.test(normalizedOrigin);
+            if (isVercelDomain) {
+                return callback(null, true);
+            }
+
+            // In development / non-production environments, allow origin for convenience
+            if (process.env.NODE_ENV !== "production") {
+                return callback(null, true);
+            }
+
+            return callback(null, false);
+        },
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
+    })
+);
 
 // Rate Limiting Middlewares to prevent abuse
 const authLimiter = rateLimit({
