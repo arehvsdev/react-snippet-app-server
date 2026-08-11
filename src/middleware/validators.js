@@ -110,8 +110,8 @@ const validateRegister = [
         .isLength({ min: 8 })
         .withMessage("Password must be at least 8 characters long")
         .bail()
-        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#\.])/)
-        .withMessage("Password must include at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#.)"),
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/)
+        .withMessage("Password must include at least one uppercase letter, one lowercase letter, one number, and one special character"),
     body("role")
         .optional()
         .isIn(allowedRoles)
@@ -523,8 +523,48 @@ const validateChangePassword = [
         .isLength({ min: 8 })
         .withMessage("New password must be at least 8 characters long")
         .bail()
-        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&#\.])/)
-        .withMessage("New password must include at least one uppercase letter, one lowercase letter, one number, and one special character (@$!%*?&#.)"),
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/)
+        .withMessage("New password must include at least one uppercase letter, one lowercase letter, one number, and one special character"),
+    handleValidationErrors
+];
+
+const validateForgotPassword = [
+    body("email")
+        .trim()
+        .notEmpty()
+        .withMessage("Email is required")
+        .bail()
+        .isEmail()
+        .withMessage("Please provide a valid email address")
+        .normalizeEmail(),
+    handleValidationErrors
+];
+
+const validateResetPassword = [
+    body("token")
+        .notEmpty()
+        .withMessage("Reset token is required"),
+    body("newPassword")
+        .optional()
+        .isLength({ min: 8 })
+        .withMessage("New password must be at least 8 characters long")
+        .bail()
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/)
+        .withMessage("New password must include at least one uppercase letter, one lowercase letter, one number, and one special character"),
+    body("password")
+        .optional()
+        .isLength({ min: 8 })
+        .withMessage("Password must be at least 8 characters long")
+        .bail()
+        .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^a-zA-Z0-9])/)
+        .withMessage("Password must include at least one uppercase letter, one lowercase letter, one number, and one special character"),
+    body()
+        .custom(value => {
+            if (!value.newPassword && !value.password) {
+                throw new Error("New password is required");
+            }
+            return true;
+        }),
     handleValidationErrors
 ];
 
@@ -547,5 +587,7 @@ module.exports = {
     validateCreateLanguage,
     validateUpdateLanguage,
     validateCreateTag,
-    validateUpdateTag
+    validateUpdateTag,
+    validateForgotPassword,
+    validateResetPassword
 };

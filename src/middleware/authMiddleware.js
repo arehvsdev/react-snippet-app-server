@@ -3,12 +3,14 @@
  * Provides JWT validation and role-based access control.
  */
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 /**
  * Protect middleware: Verifies JWT session token in Authorization header.
  * Attaches decoded user object to request upon successful authentication.
+ * Revokes access if user password was changed after JWT was issued.
  */
-const protect = (req, res, next) => {
+const protect = async (req, res, next) => {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
         return res.status(401).json({
@@ -25,7 +27,31 @@ const protect = (req, res, next) => {
             throw new Error("JWT_SECRET is not configured");
         }
         const decoded = jwt.verify(token, secret);
+
+        // Fetch user from DB to verify active status and passwordChangedAt timestamp
+        const user = await User.findById(decoded.id).select("+passwordChangedAt");
+        if (!user || user.deleted || !user.active) {
+            return res.status(401).json({
+                success: false,
+                message: "Not authorized, account unavailable or disabled",
+                errors: null
+            });
+        }
+
+        // Invalidate JWT if password was changed after JWT was issued
+        if (user.passwordChangedAt) {
+            const passwordChangedTimestamp = parseInt(user.passwordChangedAt.getTime() / 1000, 10);
+            if (decoded.iat && decoded.iat < passwordChangedTimestamp) {
+                return res.status(401).json({
+                    success: false,
+                    message: "Password was recently updated. Please log in again.",
+                    errors: null
+                });
+            }
+        }
+
         req.user = decoded; // { id, role, iat, exp }
+        req.userDoc = user;
         next();
     } catch (err) {
         if (err.name === "TokenExpiredError") {

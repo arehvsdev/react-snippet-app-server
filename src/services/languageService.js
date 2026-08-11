@@ -1,11 +1,34 @@
 const Language = require("../models/Language");
+const Snippet = require("../models/Snippet");
 
-const getLanguages = async (query) => {
+const getLanguages = async (query = {}) => {
     const filter = {};
     if (query.active !== undefined) {
         filter.isActive = query.active === "true";
     }
-    return Language.find(filter).sort({ name: 1 });
+    const languages = await Language.find(filter).sort({ name: 1 }).lean();
+
+    const counts = await Snippet.aggregate([
+        { $match: { deleted: { $ne: true } } },
+        {
+            $group: {
+                _id: { $toLower: "$language" },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    const countMap = new Map();
+    counts.forEach(item => {
+        if (item._id) {
+            countMap.set(item._id.trim(), item.count);
+        }
+    });
+
+    return languages.map(lang => ({
+        ...lang,
+        count: countMap.get(lang.name.toLowerCase().trim()) || 0
+    }));
 };
 
 const getLanguageById = async (id) => {

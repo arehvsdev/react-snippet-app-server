@@ -37,7 +37,12 @@ const updateUserAvatar = async (req, res, next) => {
             });
         }
 
-        const avatarUrl = await userService.updateUserAvatar(req.user.id, req.file.filename);
+        // Convert image file buffer directly to Base64 Data URL string to store in DB
+        const avatarData = req.file.buffer
+            ? `data:${req.file.mimetype};base64,${req.file.buffer.toString("base64")}`
+            : `/uploads/avatars/${req.file.filename}`;
+
+        const avatarUrl = await userService.updateUserAvatar(req.user.id, avatarData);
         res.status(200).json({
             success: true,
             message: "Avatar updated successfully",

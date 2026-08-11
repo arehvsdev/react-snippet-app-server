@@ -1,8 +1,9 @@
 const Tag = require("../models/Tag");
+const Snippet = require("../models/Snippet");
 
 const escapeRegExp = (string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-const getTags = async (query) => {
+const getTags = async (query = {}) => {
     const filter = {};
     if (query.active !== undefined) {
         filter.isActive = query.active === "true";
@@ -10,7 +11,30 @@ const getTags = async (query) => {
     if (query.search) {
         filter.name = new RegExp(escapeRegExp(query.search.trim()), "i");
     }
-    return Tag.find(filter).sort({ name: 1 });
+    const tags = await Tag.find(filter).sort({ name: 1 }).lean();
+
+    const counts = await Snippet.aggregate([
+        { $match: { deleted: { $ne: true } } },
+        { $unwind: "$tags" },
+        {
+            $group: {
+                _id: { $toLower: "$tags" },
+                count: { $sum: 1 }
+            }
+        }
+    ]);
+
+    const countMap = new Map();
+    counts.forEach(item => {
+        if (item._id) {
+            countMap.set(item._id.trim(), item.count);
+        }
+    });
+
+    return tags.map(tag => ({
+        ...tag,
+        count: countMap.get(tag.name.toLowerCase().trim()) || 0
+    }));
 };
 
 const getTagById = async (id) => {

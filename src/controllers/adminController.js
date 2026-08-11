@@ -156,6 +156,37 @@ const getActivityLogs = async (req, res, next) => {
     }
 };
 
+const getAuditLogs = async (req, res, next) => {
+    try {
+        const auditLogService = require("../services/auditLogService");
+        const result = await auditLogService.getAuditLogs(req.query);
+        res.status(200).json({
+            success: true,
+            data: result.logs,
+            logs: result.logs,
+            pagination: result.pagination
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+const getAuditLogById = async (req, res, next) => {
+    try {
+        const auditLogService = require("../services/auditLogService");
+        const log = await auditLogService.getAuditLogById(req.params.id);
+        if (!log) {
+            return res.status(404).json({ success: false, message: "Audit log entry not found" });
+        }
+        res.status(200).json({
+            success: true,
+            data: log
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getDashboardSummary,
     getDashboardUserGrowth,
@@ -168,5 +199,7 @@ module.exports = {
     toggleUserStatus,
     deleteUser,
     deleteAnySnippet,
-    getActivityLogs
+    getActivityLogs,
+    getAuditLogs,
+    getAuditLogById
 };

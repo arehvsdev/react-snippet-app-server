@@ -22,6 +22,9 @@ const activityLogSchema = new mongoose.Schema(
         "snippet_delete",
         "user_register",
         "snippet_comment",
+        "user_update_profile",
+        "user_update_avatar",
+        "user_change_password"
       ],
       index: true,
     },

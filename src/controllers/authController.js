@@ -95,14 +95,57 @@ const verifyEmail = async (req, res, next) => {
 };
 
 /**
- * Resets user password given valid email and new password credentials.
+ * Generates password reset token and link for a user.
+ */
+const forgotPassword = async (req, res, next) => {
+    try {
+        const result = await authService.forgotPassword({ email: req.body.email, req });
+        res.status(200).json({
+            success: true,
+            message: result.message,
+            resetToken: result.resetToken,
+            resetUrl: result.resetUrl
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Validates reset token validity and expiration.
+ */
+const validateResetToken = async (req, res, next) => {
+    try {
+        const token = req.query.token || req.body.token;
+        const result = await authService.validateResetToken(token);
+        if (!result.valid) {
+            return res.status(400).json({
+                success: false,
+                message: result.message
+            });
+        }
+        res.status(200).json({
+            success: true,
+            message: "Token is valid.",
+            userEmail: result.userEmail
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Resets user password given valid token and new password credentials.
  */
 const resetPassword = async (req, res, next) => {
     try {
-        await authService.resetPassword(req.body);
+        const { token, newPassword, password } = req.body;
+        // Accept either newPassword or password field for maximum compatibility
+        const pwd = newPassword || password;
+        await authService.resetPasswordWithToken({ token, newPassword: pwd, req });
         res.status(200).json({
             success: true,
-            message: "Password reset successful"
+            message: "Password has been successfully reset. You may now login."
         });
     } catch (error) {
         next(error);
@@ -115,5 +158,7 @@ module.exports = {
     checkUsername,
     getMe,
     verifyEmail,
+    forgotPassword,
+    validateResetToken,
     resetPassword
 };

@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Snippet = require("../models/Snippet");
+const Language = require("../models/Language");
 
 /**
  * Calculates start and end of a calendar day relative to the client's timezone offset
@@ -100,6 +101,39 @@ class DashboardService {
 
         const viewsGrowthPercent = getGrowthPercent(snippetsNew * 15, snippetsOld * 15) === "+0.0%" ? "+15.2%" : getGrowthPercent(snippetsNew * 15, snippetsOld * 15);
 
+        // Calculate unique languages from Snippets AND Language collection
+        const distinctSnippetLangs = await Snippet.distinct("language", {
+            deleted: { $ne: true },
+            language: { $exists: true, $ne: null }
+        });
+        let managedLangs = [];
+        try {
+            managedLangs = await Language.find({ isActive: true }).distinct("name");
+        } catch (e) {}
+        const uniqueLangSet = new Set(
+            [...distinctSnippetLangs, ...managedLangs]
+                .map(l => (typeof l === "string" ? l.trim().toLowerCase() : ""))
+                .filter(Boolean)
+        );
+        const totalLanguages = uniqueLangSet.size;
+
+        // Calculate unique tags from Snippet.tags arrays AND Tag collection
+        const distinctSnippetTags = await Snippet.distinct("tags", {
+            deleted: { $ne: true },
+            tags: { $exists: true, $ne: null }
+        });
+        let managedTags = [];
+        try {
+            const TagModel = require("../models/Tag");
+            managedTags = await TagModel.find({ isActive: true }).distinct("name");
+        } catch (e) {}
+        const uniqueTagSet = new Set(
+            [...distinctSnippetTags, ...managedTags]
+                .map(t => (typeof t === "string" ? t.trim().toLowerCase() : ""))
+                .filter(Boolean)
+        );
+        const totalTags = uniqueTagSet.size;
+
         return {
             totalUsers: {
                 value: totalUsers,
@@ -109,6 +143,14 @@ class DashboardService {
                 value: totalSnippets,
                 change: snippetsGrowthPercent
             },
+            totalLanguages: {
+                value: totalLanguages,
+                change: `${totalLanguages} languages`
+            },
+            totalTags: {
+                value: totalTags,
+                change: `${totalTags} unique tags`
+            },
             totalViews: {
                 value: totalViews,
                 change: viewsGrowthPercent
@@ -116,7 +158,9 @@ class DashboardService {
             snippetsCreatedToday: {
                 value: snippetsCreatedToday,
                 change: "Created today"
-            }
+            },
+            activeLanguages: totalLanguages,
+            activeTags: totalTags
         };
     }
 
@@ -158,20 +202,63 @@ class DashboardService {
 
     async getSnippetLanguages() {
         const totalSnippets = await Snippet.countDocuments({ deleted: { $ne: true } });
-        const langStats = await Snippet.aggregate([
-            { $match: { deleted: { $ne: true } } },
-            { $group: { _id: "$language", count: { $sum: 1 } } },
-            { $sort: { count: -1 } }
-        ]);
+        if (totalSnippets === 0) return [];
 
-        if (totalSnippets > 0 && langStats.length > 0) {
-            return langStats.map(item => ({
-                language: item._id || "Unknown",
-                count: item.count
-            }));
-        } else {
-            return [];
+        const snippets = await Snippet.find({ deleted: { $ne: true } }).select("language").lean();
+
+        let registeredMap = new Map();
+        try {
+            const registeredLanguages = await Language.find().lean();
+            registeredLanguages.forEach(l => {
+                if (l.name) registeredMap.set(l.name.toLowerCase(), l.name);
+            });
+        } catch (e) {
+            console.error("Error fetching languages in getSnippetLanguages:", e);
         }
+
+        const commonMap = {
+            "javascript": "JavaScript",
+            "typescript": "TypeScript",
+            "python": "Python",
+            "html": "HTML",
+            "css": "CSS",
+            "java": "Java",
+            "c++": "C++",
+            "c#": "C#",
+            "go": "Go",
+            "golang": "Go",
+            "php": "PHP",
+            "ruby": "Ruby",
+            "swift": "Swift",
+            "kotlin": "Kotlin",
+            "rust": "Rust",
+            "sql": "SQL",
+            "node.js": "Node.js",
+            "nodejs": "Node.js",
+            "react": "React"
+        };
+
+        const langMap = new Map();
+
+        snippets.forEach(s => {
+            const raw = (s.language || "Unknown").trim();
+            if (!raw) return;
+            const lowerKey = raw.toLowerCase();
+
+            let canonicalName = registeredMap.get(lowerKey);
+            if (!canonicalName) {
+                canonicalName = commonMap[lowerKey] || (raw.charAt(0).toUpperCase() + raw.slice(1));
+            }
+
+            const mapKey = canonicalName.toLowerCase();
+            if (langMap.has(mapKey)) {
+                langMap.get(mapKey).count += 1;
+            } else {
+                langMap.set(mapKey, { language: canonicalName, count: 1 });
+            }
+        });
+
+        return Array.from(langMap.values()).sort((a, b) => b.count - a.count);
     }
 
     async getWeeklyActivity(tzOffset = 0) {

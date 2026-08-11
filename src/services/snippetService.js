@@ -61,9 +61,11 @@ const createSnippet = async (data, userId) => {
 
     const user = await User.findById(userId);
     const userPlan = user?.subscription?.plan || "FREE";
+    const userRole = user?.role || "user";
+    const isAdmin = userRole === "admin";
 
-    // Enforce total snippet limit for FREE plan users (max 3)
-    if (userPlan !== "PRO") {
+    // Enforce total snippet limit for FREE plan users (max 3) - Skip for Admin
+    if (!isAdmin && userPlan !== "PRO") {
         const totalCount = await Snippet.countDocuments({ createdBy: userId });
 
         if (totalCount >= 3) {
@@ -73,8 +75,8 @@ const createSnippet = async (data, userId) => {
         }
     }
 
-    // Enforce private snippet limit for FREE plan users on backend
-    if (targetVisibility === "private" && userPlan !== "PRO") {
+    // Enforce private snippet limit for FREE plan users on backend - Skip for Admin
+    if (targetVisibility === "private" && !isAdmin && userPlan !== "PRO") {
         const privateCount = await Snippet.countDocuments({
             createdBy: userId,
             visibility: "private"
@@ -126,18 +128,25 @@ const updateSnippet = async (id, data, userId) => {
         throw error;
     }
 
-    if (String(snippet.createdBy) !== String(userId)) {
-        const error = new Error("Not authorised");
+    const user = await User.findById(userId);
+    const userRole = (user?.role || "").toLowerCase();
+    const isAdmin = userRole === "admin";
+    const isOwner = String(snippet.createdBy) === String(userId);
+
+    if (!isOwner && !isAdmin) {
+        const error = new Error("Not authorised to edit this snippet");
         error.statusCode = 403;
         throw error;
     }
 
-    // Enforce private snippet limit if converting public to private
+    // Enforce private snippet limit if converting public to private - Skip for Admin
     if (data.visibility === "private" && snippet.visibility !== "private") {
         const user = await User.findById(userId);
         const userPlan = user?.subscription?.plan || "FREE";
+        const userRole = user?.role || "user";
+        const isAdmin = userRole === "admin";
 
-        if (userPlan !== "PRO") {
+        if (!isAdmin && userPlan !== "PRO") {
             const privateCount = await Snippet.countDocuments({
                 createdBy: userId,
                 visibility: "private"
@@ -633,7 +642,12 @@ const updateComment = async (commentId, content, userId) => {
         throw error;
     }
 
-    if (String(comment.userId) !== String(userId)) {
+    const user = await User.findById(userId);
+    const userRole = (user?.role || "").toLowerCase();
+    const isAdmin = userRole === "admin";
+    const isOwner = String(comment.userId) === String(userId);
+
+    if (!isOwner && !isAdmin) {
         const error = new Error("Not authorized to update this comment");
         error.statusCode = 403;
         throw error;
@@ -670,28 +684,107 @@ const deleteComment = async (commentId, user) => {
 };
 
 const toggleSnippetLike = async (snippetId, userId) => {
-    const snippet = await Snippet.findById(snippetId);
-    if (!snippet) {
-        const error = new Error("Snippet not found");
-        error.statusCode = 404;
-        throw error;
-    }
-
+    // 1. Check if user already liked
     const existing = await Like.findOne({ userId, targetId: snippetId, targetType: "Snippet" });
     let liked = false;
 
     if (existing) {
+        // Atomic deletion & atomic decrement
         await Like.deleteOne({ _id: existing._id });
-        snippet.likes = Math.max(0, (snippet.likes || 0) - 1);
+        const updatedSnippet = await Snippet.findByIdAndUpdate(
+            snippetId,
+            { $inc: { likes: -1 } },
+            { new: true }
+        );
+        if (!updatedSnippet) {
+            const error = new Error("Snippet not found");
+            error.statusCode = 404;
+            throw error;
+        }
+        // Ensure likes count never drops below 0
+        if (updatedSnippet.likes < 0) {
+            updatedSnippet.likes = 0;
+            await updatedSnippet.save();
+        }
         liked = false;
-    } else {
-        await Like.create({ userId, targetId: snippetId, targetType: "Snippet" });
-        snippet.likes = (snippet.likes || 0) + 1;
-        liked = true;
-    }
 
-    await snippet.save();
-    return { liked, likes: snippet.likes };
+        // Recalculate AI recommendation score
+        const likes = updatedSnippet.likes || 0;
+        const bookmarks = updatedSnippet.bookmarksCount || 0;
+        const views = updatedSnippet.views || 0;
+        const sentiment = updatedSnippet.ai?.sentimentScore ?? 0.5;
+        const helpfulness = updatedSnippet.ai?.helpfulnessScore ?? 0.5;
+        const toxicity = updatedSnippet.ai?.toxicityScore ?? 0;
+        const newScore = Math.max(0, Math.round(((likes * 3) + (bookmarks * 2) + (views * 0.1) + (sentiment * 5) + (helpfulness * 5) - (toxicity * 10)) * 10) / 10);
+        
+        updatedSnippet.aiRecommendationScore = newScore;
+        if (updatedSnippet.ai) {
+            updatedSnippet.ai.recommendationScore = newScore;
+        }
+        await updatedSnippet.save();
+
+        return { liked, likes: updatedSnippet.likes, recommendationScore: newScore };
+    } else {
+        // Attempt atomic creation. If duplicate due to race condition, handle gracefully
+        try {
+            await Like.create({ userId, targetId: snippetId, targetType: "Snippet" });
+        } catch (err) {
+            if (err.code === 11000) {
+                // Already liked (race condition catch)
+                const currentSnippet = await Snippet.findById(snippetId);
+                return { liked: true, likes: currentSnippet?.likes || 0, recommendationScore: currentSnippet?.aiRecommendationScore || 0 };
+            }
+            throw err;
+        }
+
+        const updatedSnippet = await Snippet.findByIdAndUpdate(
+            snippetId,
+            { $inc: { likes: 1 } },
+            { new: true }
+        ).populate("createdBy", "name username");
+
+        if (!updatedSnippet) {
+            const error = new Error("Snippet not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        liked = true;
+
+        // Trigger notification for snippet author (if not self-like)
+        const authorId = updatedSnippet.createdBy._id || updatedSnippet.createdBy;
+        if (String(authorId) !== String(userId)) {
+            const likerUser = await User.findById(userId).select("name");
+            const likerName = likerUser?.name || "A developer";
+            const notificationService = require("./notificationService");
+            await notificationService.createNotification({
+                recipient: authorId,
+                sender: userId,
+                type: "like",
+                title: "New Like on Your Snippet",
+                message: `${likerName} liked your snippet "${updatedSnippet.title}"`,
+                link: "/snippet-feed",
+                snippetId: snippetId
+            });
+        }
+
+        // Recalculate AI recommendation score
+        const likes = updatedSnippet.likes || 0;
+        const bookmarks = updatedSnippet.bookmarksCount || 0;
+        const views = updatedSnippet.views || 0;
+        const sentiment = updatedSnippet.ai?.sentimentScore ?? 0.5;
+        const helpfulness = updatedSnippet.ai?.helpfulnessScore ?? 0.5;
+        const toxicity = updatedSnippet.ai?.toxicityScore ?? 0;
+        const newScore = Math.max(0, Math.round(((likes * 3) + (bookmarks * 2) + (views * 0.1) + (sentiment * 5) + (helpfulness * 5) - (toxicity * 10)) * 10) / 10);
+
+        updatedSnippet.aiRecommendationScore = newScore;
+        if (updatedSnippet.ai) {
+            updatedSnippet.ai.recommendationScore = newScore;
+        }
+        await updatedSnippet.save();
+
+        return { liked, likes: updatedSnippet.likes, recommendationScore: newScore };
+    }
 };
 
 const toggleCommentLike = async (commentId, userId) => {

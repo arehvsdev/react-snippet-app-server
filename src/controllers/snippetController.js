@@ -222,7 +222,8 @@ const toggleSnippetLike = async (req, res, next) => {
             message: result.liked ? "Snippet liked" : "Snippet unliked",
             data: result,
             liked: result.liked,
-            likes: result.likes
+            likes: result.likes,
+            recommendationScore: result.recommendationScore
         });
     } catch (error) {
         next(error);
