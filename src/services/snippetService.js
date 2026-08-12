@@ -117,6 +117,25 @@ const createSnippet = async (data, userId) => {
         }
     });
 
+    const auditLogService = require("./auditLogService");
+    await auditLogService.recordAuditLog({
+        userId,
+        userName: user?.name || user?.username || "User",
+        userEmail: user?.email || "",
+        type: "Snippet",
+        action: "SNIPPET_CREATE",
+        resourceType: "Snippet",
+        resourceId: createdSnippet._id,
+        resourceName: createdSnippet.title,
+        status: "Success",
+        details: {
+            snippetId: createdSnippet._id,
+            title: createdSnippet.title,
+            language: createdSnippet.language,
+            visibility: createdSnippet.visibility
+        }
+    });
+
     return createdSnippet;
 };
 
@@ -185,6 +204,25 @@ const updateSnippet = async (id, data, userId) => {
         userId,
         actionType: "snippet_edit",
         description: `Edited snippet: "${updatedSnippet.title}"`,
+        details: {
+            snippetId: updatedSnippet._id,
+            title: updatedSnippet.title,
+            language: updatedSnippet.language,
+            visibility: updatedSnippet.visibility
+        }
+    });
+
+    const auditLogService = require("./auditLogService");
+    await auditLogService.recordAuditLog({
+        userId,
+        userName: user?.name || user?.username || "User",
+        userEmail: user?.email || "",
+        type: "Snippet",
+        action: "SNIPPET_UPDATE",
+        resourceType: "Snippet",
+        resourceId: updatedSnippet._id,
+        resourceName: updatedSnippet.title,
+        status: "Success",
         details: {
             snippetId: updatedSnippet._id,
             title: updatedSnippet.title,
@@ -463,6 +501,23 @@ const deleteSnippet = async (id, user) => {
         }
     });
 
+    const auditLogService = require("./auditLogService");
+    await auditLogService.recordAuditLog({
+        userId: user.id,
+        userName: user.name || user.username || "User",
+        userEmail: user.email || "",
+        type: "Snippet",
+        action: "SNIPPET_DELETE",
+        resourceType: "Snippet",
+        resourceId: id,
+        resourceName: snippet.title,
+        status: "Success",
+        details: {
+            snippetId: id,
+            title: snippet.title
+        }
+    });
+
     return true;
 };
 
@@ -617,12 +672,30 @@ const addComment = async (snippetId, { content, parentId }, userId) => {
     await activityLogService.logActivity({
         userId,
         actionType: "snippet_comment",
-        description: `Added comment on snippet: "${snippet.title}"`,
+        description: `Added comment on snippet: "${snippetObj?.title || 'snippet'}"`,
         details: {
             snippetId,
-            snippetTitle: snippet.title,
+            snippetTitle: snippetObj?.title || '',
             commentId: comment._id,
             excerpt: content.length > 60 ? content.substring(0, 60) + "..." : content
+        }
+    });
+
+    const auditLogService = require("./auditLogService");
+    const commentUser = await User.findById(userId);
+    await auditLogService.recordAuditLog({
+        userId,
+        userName: commentUser?.name || commentUser?.username || "User",
+        userEmail: commentUser?.email || "",
+        type: "Comment",
+        action: "COMMENT_CREATE",
+        resourceType: "Comment",
+        resourceId: comment._id,
+        resourceName: snippetObj?.title || "Comment",
+        status: "Success",
+        details: {
+            snippetId,
+            commentId: comment._id
         }
     });
 
