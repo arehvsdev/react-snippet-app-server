@@ -37,10 +37,6 @@ const activityLogSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: {},
     },
-    ipAddress: {
-      type: String,
-      default: "",
-    },
   },
   {
     timestamps: true,

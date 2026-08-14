@@ -169,12 +169,6 @@ class CommentAnalysisService {
       const finalScore = Math.round(compositeScore * 10) / 10;
 
       snippet.aiRecommendationScore = finalScore;
-      snippet.aiMetrics = {
-        avgSentiment,
-        avgHelpfulness,
-        avgToxicity,
-        analyzedCommentCount: count,
-      };
       snippet.ai = {
         recommendationScore: finalScore,
         sentimentScore: avgSentiment,

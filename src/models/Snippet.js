@@ -37,13 +37,6 @@ const snippetSchema = new mongoose.Schema({
         enum: ["public", "private"],
         default: "public"
     },
-    embeddings: {
-        type: [Number],
-        default: []
-    },
-    aiSummary: {
-        type: String
-    },
     likes: {
         type: Number,
         default: 0
@@ -60,12 +53,6 @@ const snippetSchema = new mongoose.Schema({
         type: Number,
         default: 0,
         index: true
-    },
-    aiMetrics: {
-        avgSentiment: { type: Number, default: 0 },
-        avgHelpfulness: { type: Number, default: 0 },
-        avgToxicity: { type: Number, default: 0 },
-        analyzedCommentCount: { type: Number, default: 0 }
     },
     ai: {
         recommendationScore: { type: Number, default: 0 },

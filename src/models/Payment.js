@@ -45,11 +45,6 @@ const paymentSchema = new mongoose.Schema({
         default: null
     },
 
-    signature: {
-        type: String,
-        default: null
-    },
-
     status: {
         type: String,
         enum: [
@@ -58,11 +53,6 @@ const paymentSchema = new mongoose.Schema({
             "FAILED"
         ],
         default: "CREATED"
-    },
-
-    verified: {
-        type: Boolean,
-        default: false
     }
 }, {
     timestamps: true

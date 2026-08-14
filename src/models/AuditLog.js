@@ -63,11 +63,6 @@ const auditLogSchema = new mongoose.Schema(
       default: "127.0.0.1",
       trim: true,
     },
-    userAgent: {
-      type: String,
-      default: "Unknown Browser",
-      trim: true,
-    },
     details: {
       type: mongoose.Schema.Types.Mixed,
       default: {},
