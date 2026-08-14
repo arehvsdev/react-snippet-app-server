@@ -386,8 +386,9 @@ const getSnippets = async (query, decodedUser) => {
     const sortOrder = query.sortOrder === "asc" ? 1 : -1;
     const sort = { [sortBy]: sortOrder };
 
-    const total = await Snippet.countDocuments(filter);
-    const snippets = await Snippet.find(filter)
+    const queryFilter = filter.$and.length > 0 ? filter : {};
+    const total = await Snippet.countDocuments(queryFilter);
+    const snippets = await Snippet.find(queryFilter)
         .populate("createdBy", "name username avatar")
         .populate("category", "name description")
         .sort(sort)
