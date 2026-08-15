@@ -542,8 +542,14 @@ const validateForgotPassword = [
 
 const validateResetPassword = [
     body("token")
-        .notEmpty()
-        .withMessage("Reset token is required"),
+        .optional()
+        .trim(),
+    body("email")
+        .optional()
+        .trim()
+        .isEmail()
+        .withMessage("Please provide a valid email address")
+        .normalizeEmail(),
     body("newPassword")
         .optional()
         .isLength({ min: 8 })
@@ -562,6 +568,9 @@ const validateResetPassword = [
         .custom(value => {
             if (!value.newPassword && !value.password) {
                 throw new Error("New password is required");
+            }
+            if (!value.token && !value.email) {
+                throw new Error("Email or reset token is required for password reset");
             }
             return true;
         }),
