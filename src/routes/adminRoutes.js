@@ -21,7 +21,10 @@ const {
 const {
     getAllSubscriptions,
     getFreeSubscriptions,
-    getProSubscriptions
+    getProSubscriptions,
+    getSubscriptionStats,
+    getAllPayments,
+    updateUserSubscription
 } = require("../controllers/adminSubscriptionController");
 const { mongoIdParam } = require("../middleware/validators");
 
@@ -46,11 +49,17 @@ router.put("/users/:id/role", mongoIdParam("id"), updateUserRole);
 /** PUT /api/admin/users/:id/status — enable/disable user status */
 router.put("/users/:id/status", mongoIdParam("id"), toggleUserStatus);
 
+/** PUT /api/admin/users/:id/subscription — update user subscription plan/status */
+router.put("/users/:id/subscription", mongoIdParam("id"), updateUserSubscription);
+
 /** DELETE /api/admin/users/:id — soft delete user account */
 router.delete("/users/:id", mongoIdParam("id"), deleteUser);
 
 /** DELETE /api/admin/snippets/:id — force delete any snippet */
 router.delete("/snippets/:id", mongoIdParam("id"), deleteAnySnippet);
+
+/** GET /api/admin/subscriptions/stats — summary statistics for subscriptions */
+router.get("/subscriptions/stats", getSubscriptionStats);
 
 /** GET /api/admin/subscriptions — list all user subscriptions with pagination */
 router.get("/subscriptions", getAllSubscriptions);
@@ -61,4 +70,8 @@ router.get("/subscriptions/free", getFreeSubscriptions);
 /** GET /api/admin/subscriptions/pro — list PRO plan users */
 router.get("/subscriptions/pro", getProSubscriptions);
 
+/** GET /api/admin/payments — list all payment transaction records for admin */
+router.get("/payments", getAllPayments);
+
 module.exports = router;
+
