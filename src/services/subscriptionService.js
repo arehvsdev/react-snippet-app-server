@@ -131,7 +131,9 @@ const getSubscriptionStats = async () => {
         Payment.countDocuments()
     ]);
 
-    const totalRevenue = paymentAggregate.length > 0 ? paymentAggregate[0].totalRevenue : 0;
+    // Razorpay amounts are in paisa, convert to Rupees for revenue reporting
+    const rawRevenue = paymentAggregate.length > 0 ? paymentAggregate[0].totalRevenue : 0;
+    const totalRevenue = rawRevenue > 0 ? (rawRevenue / 100) : 0;
 
     return {
         totalProUsers,
