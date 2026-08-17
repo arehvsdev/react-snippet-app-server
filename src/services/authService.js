@@ -251,30 +251,45 @@ const validateResetToken = async (token) => {
  * Hashes new password, atomically clears token and expiry to guarantee single-use consumption,
  * and sets passwordChangedAt timestamp to revoke active JWT tokens.
  */
-const resetPasswordWithToken = async ({ token, newPassword, req }) => {
-    if (!token || !newPassword) {
-        const error = new Error("Token and new password are required.");
+const resetPasswordWithToken = async ({ token, newPassword, email, req }) => {
+    if (!newPassword) {
+        const error = new Error("New password is required.");
         error.statusCode = 400;
         throw error;
     }
 
-    const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
+    let user;
 
-    // Atomic find and nullify operation to prevent race conditions (TOCTOU)
-    const user = await User.findOneAndUpdate(
-        {
-            resetPasswordToken: hashedToken,
-            resetPasswordExpires: { $gt: Date.now() },
-            deleted: { $ne: true }
-        },
-        {
-            $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 }
-        },
-        { returnDocument: "after" }
-    );
+    if (token) {
+        const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
 
-    if (!user) {
-        const error = new Error("Password reset token is invalid or has expired.");
+        // Atomic find and nullify operation to prevent race conditions (TOCTOU)
+        user = await User.findOneAndUpdate(
+            {
+                resetPasswordToken: hashedToken,
+                resetPasswordExpires: { $gt: Date.now() },
+                deleted: { $ne: true }
+            },
+            {
+                $unset: { resetPasswordToken: 1, resetPasswordExpires: 1 }
+            },
+            { returnDocument: "after" }
+        );
+
+        if (!user) {
+            const error = new Error("Password reset token is invalid or has expired.");
+            error.statusCode = 400;
+            throw error;
+        }
+    } else if (email) {
+        user = await User.findOne({ email: email.toLowerCase(), deleted: { $ne: true } });
+        if (!user) {
+            const error = new Error("User with given email address does not exist.");
+            error.statusCode = 404;
+            throw error;
+        }
+    } else {
+        const error = new Error("Email or reset token is required.");
         error.statusCode = 400;
         throw error;
     }

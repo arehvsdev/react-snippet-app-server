@@ -139,10 +139,10 @@ const validateResetToken = async (req, res, next) => {
  */
 const resetPassword = async (req, res, next) => {
     try {
-        const { token, newPassword, password } = req.body;
+        const { token, newPassword, password, email } = req.body;
         // Accept either newPassword or password field for maximum compatibility
         const pwd = newPassword || password;
-        await authService.resetPasswordWithToken({ token, newPassword: pwd, req });
+        await authService.resetPasswordWithToken({ token, newPassword: pwd, email, req });
         res.status(200).json({
             success: true,
             message: "Password has been successfully reset. You may now login."
