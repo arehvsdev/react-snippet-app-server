@@ -9,6 +9,10 @@
     {
       "url": "http://localhost:5000",
       "description": "Local development server"
+    },
+    {
+      "url": "https://api.snippets.example.com",
+      "description": "Production server"
     }
   ],
   "tags": [
@@ -18,9 +22,13 @@
     { "name": "Snippets", "description": "Code snippet creation, listing, searching, editing, and deletion" },
     { "name": "Bookmarks", "description": "Bookmark management for saved code snippets" },
     { "name": "Comments", "description": "Snippet comments management" },
+    { "name": "Likes", "description": "Like/Unlike snippets and comments" },
+    { "name": "Recommendations", "description": "Recommended and similar snippets" },
+    { "name": "Notifications", "description": "User notifications management" },
     { "name": "Payment", "description": "Razorpay order creation, signature verification, and transaction history" },
     { "name": "Subscription", "description": "User subscription plan management" },
     { "name": "Dashboard", "description": "User dashboard metrics" },
+    { "name": "Admin Dashboard", "description": "Admin dashboard analytics and metrics" },
     { "name": "Taxonomies", "description": "Snippet Categories, Languages, and Tags management" },
     { "name": "Admin", "description": "Administrator control panel, user management, and system stats" }
   ],
@@ -208,6 +216,36 @@
         }
       }
     },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get Current User",
+        "description": "Retrieves the currently authenticated user's information.",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Current user data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized - invalid or missing token",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
     "/api/auth/verify-email": {
       "post": {
         "tags": ["Authentication"],
@@ -241,6 +279,93 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Email not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/forgot-password": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Request Password Reset",
+        "description": "Initiates the password reset process by sending a reset token to the user's email.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email"],
+                "properties": {
+                  "email": { "type": "string", "format": "email", "example": "john.doe@example.com" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Password reset link sent to email" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Email not found or validation error",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/auth/validate-reset-token": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Validate Password Reset Token",
+        "description": "Validates if a password reset token is valid and not expired.",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Password reset token"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token is valid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Token is valid" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Token is invalid or expired",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
           }
         }
       }
@@ -259,7 +384,7 @@
                 "required": ["email", "newPassword"],
                 "properties": {
                   "email": { "type": "string", "format": "email", "example": "john.doe@example.com" },
-                  "newPassword": { "type": "string", "format": "password", "example": "NewPassword123!" }
+                  "newPassword": { "type": "string", "format": "password", "minLength": 8, "example": "NewPassword123!" }
                 }
               }
             }
@@ -278,6 +403,12 @@
                   }
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Validation error or invalid email",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }
           }
         }
@@ -344,7 +475,7 @@
       }
     },
     "/api/users/avatar": {
-      "post": {
+      "patch": {
         "tags": ["Users"],
         "summary": "Upload Profile Avatar",
         "security": [{ "BearerAuth": [] }],
@@ -354,11 +485,12 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
+                "required": ["avatar"],
                 "properties": {
                   "avatar": {
                     "type": "string",
                     "format": "binary",
-                    "description": "Image file (PNG, JPG, JPEG, GIF, max 2MB)"
+                    "description": "Image file (PNG, JPG, JPEG, GIF, WEBP, max 2MB)"
                   }
                 }
               }
@@ -379,12 +511,18 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "File size exceeds limit or invalid file type",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
           }
         }
       }
     },
     "/api/users/change-password": {
-      "post": {
+      "put": {
         "tags": ["Users"],
         "summary": "Change User Password",
         "security": [{ "BearerAuth": [] }],
@@ -397,7 +535,7 @@
                 "required": ["currentPassword", "newPassword"],
                 "properties": {
                   "currentPassword": { "type": "string", "format": "password", "example": "Password123!" },
-                  "newPassword": { "type": "string", "format": "password", "example": "NewPassword456!" }
+                  "newPassword": { "type": "string", "format": "password", "minLength": 8, "example": "NewPassword456!" }
                 }
               }
             }
@@ -416,6 +554,12 @@
                   }
                 }
               }
+            }
+          },
+          "400": {
+            "description": "Validation error or incorrect current password",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
             }
           }
         }
@@ -495,106 +639,31 @@
         }
       }
     },
-    "/api/snippets/{id}": {
+    "/api/snippets/my/stats": {
       "get": {
         "tags": ["Snippets"],
-        "summary": "Get Snippet by ID",
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Snippet details retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": { "$ref": "#/components/schemas/Snippet" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": ["Snippets"],
-        "summary": "Update Snippet",
+        "summary": "Get My Snippet Statistics",
+        "description": "Retrieves statistics about the authenticated user's snippets.",
         "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": { "$ref": "#/components/schemas/SnippetInput" }
-            }
-          }
-        },
         "responses": {
           "200": {
-            "description": "Snippet updated successfully",
+            "description": "User snippet statistics",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": { "type": "boolean", "example": true },
-                    "data": { "$ref": "#/components/schemas/Snippet" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": ["Snippets"],
-        "summary": "Delete Snippet",
-        "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Snippet deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "message": { "type": "string", "example": "Snippet deleted successfully" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/snippets/{id}/bookmarks": {
-      "post": {
-        "tags": ["Bookmarks"],
-        "summary": "Toggle Bookmark on Snippet",
-        "security": [{ "BearerAuth": [] }],
-        "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
-        ],
-        "responses": {
-          "200": {
-            "description": "Bookmark toggled",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "isBookmarked": { "type": "boolean", "example": true },
-                    "message": { "type": "string", "example": "Snippet bookmarked successfully" }
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totalSnippets": { "type": "integer", "example": 12 },
+                        "totalBookmarks": { "type": "integer", "example": 5 },
+                        "totalLikes": { "type": "integer", "example": 8 },
+                        "totalComments": { "type": "integer", "example": 15 },
+                        "snippetsByLanguage": { "type": "object", "example": { "javascript": 8, "python": 4 } }
+                      }
+                    }
                   }
                 }
               }
@@ -624,7 +693,183 @@
                     "data": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/Snippet" }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "pages": { "type": "integer" }
+                      }
                     }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}": {
+      "get": {
+        "tags": ["Snippets"],
+        "summary": "Get Snippet by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snippet details retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Snippet" }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Snippet not found",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Snippets"],
+        "summary": "Update Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SnippetInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Snippet updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Snippet" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - not the snippet owner",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Snippets"],
+        "summary": "Delete Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snippet deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Snippet deleted successfully" }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden - not the snippet owner",
+            "content": {
+              "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}/bookmarks": {
+      "post": {
+        "tags": ["Bookmarks"],
+        "summary": "Toggle Bookmark on Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": { "type": "string", "enum": ["add", "remove"], "description": "Bookmark action" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Bookmark toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "isBookmarked": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Snippet bookmarked successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/{id}/like": {
+      "post": {
+        "tags": ["Likes"],
+        "summary": "Toggle Like on Snippet",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Like toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "isLiked": { "type": "boolean", "example": true },
+                    "likesCount": { "type": "integer", "example": 5 },
+                    "message": { "type": "string", "example": "Snippet liked successfully" }
                   }
                 }
               }
@@ -638,7 +883,7 @@
         "tags": ["Comments"],
         "summary": "Get Comments for Snippet",
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
         ],
         "responses": {
           "200": {
@@ -665,7 +910,7 @@
         "summary": "Post Comment on Snippet",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
         ],
         "requestBody": {
           "required": true,
@@ -691,6 +936,316 @@
                   "properties": {
                     "success": { "type": "boolean", "example": true },
                     "data": { "$ref": "#/components/schemas/Comment" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/comments/{commentId}": {
+      "put": {
+        "tags": ["Comments"],
+        "summary": "Update Comment",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "commentId", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Comment ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["comment"],
+                "properties": {
+                  "comment": { "type": "string", "example": "Updated comment" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Comment updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Comment" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Comments"],
+        "summary": "Delete Comment",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "commentId", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Comment ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comment deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Comment deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/snippets/comments/{commentId}/like": {
+      "post": {
+        "tags": ["Likes"],
+        "summary": "Toggle Like on Comment",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "commentId", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Comment ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Comment like toggled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "isLiked": { "type": "boolean", "example": true },
+                    "likesCount": { "type": "integer", "example": 3 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommendations": {
+      "get": {
+        "tags": ["Recommendations"],
+        "summary": "Get Recommended Snippets",
+        "description": "Returns globally recommended snippets based on popularity and engagement.",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of recommended snippets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Snippet" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommendations/user": {
+      "get": {
+        "tags": ["Recommendations"],
+        "summary": "Get Personalized Recommendations",
+        "description": "Returns snippets recommended based on the authenticated user's preferences and history.",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of personalized recommendations",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Snippet" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/recommendations/similar/{id}": {
+      "get": {
+        "tags": ["Recommendations"],
+        "summary": "Get Similar Snippets",
+        "description": "Returns snippets similar to the specified snippet ID.",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 5 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of similar snippets",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Snippet" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get User Notifications",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of user notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Notification" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/unread-count": {
+      "get": {
+        "tags": ["Notifications"],
+        "summary": "Get Unread Notification Count",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Number of unread notifications",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "unreadCount": { "type": "integer", "example": 5 }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}/read": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark Notification as Read",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Notification ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Notification marked as read" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/read-all": {
+      "patch": {
+        "tags": ["Notifications"],
+        "summary": "Mark All Notifications as Read",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "All notifications marked as read" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications/{id}": {
+      "delete": {
+        "tags": ["Notifications"],
+        "summary": "Delete Notification",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Notification ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Notification deleted successfully" }
                   }
                 }
               }
@@ -839,52 +1394,14 @@
         }
       }
     },
-    "/api/subscription": {
-      "get": {
-        "tags": ["Subscription"],
-        "summary": "Get Current Subscription",
-        "security": [{ "BearerAuth": [] }],
-        "responses": {
-          "200": {
-            "description": "User subscription information",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "name": { "type": "string", "example": "John Doe" },
-                        "username": { "type": "string", "example": "johndoe" },
-                        "email": { "type": "string", "example": "john@example.com" },
-                        "subscription": {
-                          "type": "object",
-                          "properties": {
-                            "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" },
-                            "startDate": { "type": "string", "format": "date-time" },
-                            "endDate": { "type": "string", "format": "date-time" }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/dashboard/stats": {
+    "/api/dashboard/summary": {
       "get": {
         "tags": ["Dashboard"],
-        "summary": "Get User Dashboard Stats",
+        "summary": "Get User Dashboard Summary",
         "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
-            "description": "User metrics overview",
+            "description": "User dashboard summary metrics",
             "content": {
               "application/json": {
                 "schema": {
@@ -896,7 +1413,7 @@
                       "properties": {
                         "totalSnippets": { "type": "integer", "example": 12 },
                         "totalBookmarks": { "type": "integer", "example": 5 },
-                        "snippetsByLanguage": { "type": "object", "example": { "javascript": 8, "python": 4 } }
+                        "totalLikes": { "type": "integer", "example": 8 }
                       }
                     }
                   }
@@ -907,84 +1424,21 @@
         }
       }
     },
-    "/api/categories": {
+    "/api/dashboard/user-growth": {
       "get": {
-        "tags": ["Taxonomies"],
-        "summary": "Get Categories",
-        "responses": {
-          "200": {
-            "description": "List of snippet categories",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Category" }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": ["Taxonomies"],
-        "summary": "Create Category (Admin)",
+        "tags": ["Dashboard"],
+        "summary": "Get User Growth Analytics",
         "security": [{ "BearerAuth": [] }],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["name"],
-                "properties": {
-                  "name": { "type": "string", "example": "Algorithms" },
-                  "description": { "type": "string", "example": "Data structures and algorithm implementations" }
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Category created successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": { "$ref": "#/components/schemas/Category" }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/languages": {
-      "get": {
-        "tags": ["Taxonomies"],
-        "summary": "Get Languages",
         "responses": {
           "200": {
-            "description": "List of supported programming languages",
+            "description": "User growth statistics",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": { "type": "boolean", "example": true },
-                    "data": {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Language" }
-                    }
+                    "data": { "type": "object" }
                   }
                 }
               }
@@ -993,23 +1447,21 @@
         }
       }
     },
-    "/api/tags": {
+    "/api/dashboard/snippet-languages": {
       "get": {
-        "tags": ["Taxonomies"],
-        "summary": "Get Tags",
+        "tags": ["Dashboard"],
+        "summary": "Get Snippet Languages Distribution",
+        "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
-            "description": "List of all tags",
+            "description": "Language distribution statistics",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
                     "success": { "type": "boolean", "example": true },
-                    "data": {
-                      "type": "array",
-                      "items": { "$ref": "#/components/schemas/Tag" }
-                    }
+                    "data": { "type": "object", "example": { "javascript": 8, "python": 4 } }
                   }
                 }
               }
@@ -1018,10 +1470,56 @@
         }
       }
     },
-    "/api/admin/dashboard/stats": {
+    "/api/dashboard/weekly-activity": {
       "get": {
-        "tags": ["Admin"],
-        "summary": "Get Admin Platform Analytics",
+        "tags": ["Dashboard"],
+        "summary": "Get Weekly Activity",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Weekly activity data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard/recent-activity": {
+      "get": {
+        "tags": ["Dashboard"],
+        "summary": "Get Recent Activity",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Recent activity data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/summary": {
+      "get": {
+        "tags": ["Admin Dashboard"],
+        "summary": "Get Admin Dashboard Summary",
         "security": [{ "BearerAuth": [] }],
         "responses": {
           "200": {
@@ -1049,6 +1547,178 @@
         }
       }
     },
+    "/api/admin/dashboard/user-growth": {
+      "get": {
+        "tags": ["Admin Dashboard"],
+        "summary": "Get User Growth Analytics (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User growth statistics",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/snippet-languages": {
+      "get": {
+        "tags": ["Admin Dashboard"],
+        "summary": "Get Snippet Languages (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Language distribution across platform",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/weekly-activity": {
+      "get": {
+        "tags": ["Admin Dashboard"],
+        "summary": "Get Weekly Activity (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Weekly platform activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/dashboard/recent-activity": {
+      "get": {
+        "tags": ["Admin Dashboard"],
+        "summary": "Get Recent Activity (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Recent platform activity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/logs": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Activity Logs",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "System activity logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/ActivityLog" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/audit-logs": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Audit Logs",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "System audit logs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/AuditLog" } }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/audit-logs/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Single Audit Log",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Audit Log ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit log details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/AuditLog" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/users": {
       "get": {
         "tags": ["Admin"],
@@ -1057,8 +1727,9 @@
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
           { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
-          { "name": "search", "in": "query", "schema": { "type": "string" } },
-          { "name": "role", "in": "query", "schema": { "type": "string" } }
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Search by name, email, or username" },
+          { "name": "role", "in": "query", "schema": { "type": "string" }, "description": "Filter by user role" },
+          { "name": "status", "in": "query", "schema": { "type": "string" }, "description": "Filter by user status" }
         ],
         "responses": {
           "200": {
@@ -1072,7 +1743,66 @@
                     "data": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/User" }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "pages": { "type": "integer" }
+                      }
                     }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/users/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get User by ID (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "User details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete User (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "User soft-deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "User deleted successfully" }
                   }
                 }
               }
@@ -1087,7 +1817,7 @@
         "summary": "Update User Role (Admin)",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
-          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" } }
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID" }
         ],
         "requestBody": {
           "required": true,
@@ -1121,15 +1851,80 @@
         }
       }
     },
+    "/api/admin/users/{id}/status": {
+      "put": {
+        "tags": ["Admin"],
+        "summary": "Toggle User Status (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "User ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["isActive"],
+                "properties": {
+                  "isActive": { "type": "boolean", "example": true }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User status updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/User" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/snippets/{id}": {
+      "delete": {
+        "tags": ["Admin"],
+        "summary": "Delete Any Snippet (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Snippet ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Snippet deleted successfully by admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Snippet deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/admin/subscriptions": {
       "get": {
         "tags": ["Admin"],
-        "summary": "Get Subscriptions (Admin)",
+        "summary": "Get All Subscriptions (Admin)",
         "security": [{ "BearerAuth": [] }],
         "parameters": [
           { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
-          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
-          { "name": "plan", "in": "query", "schema": { "type": "string", "enum": ["FREE", "PRO"] } }
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
         ],
         "responses": {
           "200": {
@@ -1143,6 +1938,697 @@
                     "data": {
                       "type": "array",
                       "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions/free": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Free Plan Users (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of FREE plan users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/admin/subscriptions/pro": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Get Pro Plan Users (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of PRO plan users",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/User" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get All Categories",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Category" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Taxonomies"],
+        "summary": "Create New Category (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "Web Development" },
+                  "description": { "type": "string", "example": "Frontend, backend, and full-stack web development snippets" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Category created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Category" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/categories/{id}": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Category by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Category ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Category" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Taxonomies"],
+        "summary": "Update Category (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Category ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "Web Development" },
+                  "description": { "type": "string", "example": "Updated description" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Category updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Category" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Taxonomies"],
+        "summary": "Delete Category (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Category ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Category deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Category deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get All Programming Languages",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of programming languages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Language" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Taxonomies"],
+        "summary": "Create New Language (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "JavaScript" },
+                  "icon": { "type": "string", "example": "javascript-icon-url" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Language created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Language" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/languages/{id}": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Language by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Language ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Language details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Language" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Taxonomies"],
+        "summary": "Update Language (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Language ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "TypeScript" },
+                  "icon": { "type": "string", "example": "typescript-icon-url" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Language updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Language" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Taxonomies"],
+        "summary": "Delete Language (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Language ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Language deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Language deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tags": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get All Tags",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of tags",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Tag" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["Taxonomies"],
+        "summary": "Create New Tag (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name"],
+                "properties": {
+                  "name": { "type": "string", "example": "async-await" },
+                  "description": { "type": "string", "example": "Asynchronous programming patterns" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Tag created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Tag" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/tags/{id}": {
+      "get": {
+        "tags": ["Taxonomies"],
+        "summary": "Get Tag by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Tag ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tag details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Tag" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": ["Taxonomies"],
+        "summary": "Update Tag (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Tag ID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string", "example": "promise" },
+                  "description": { "type": "string", "example": "Promise-based patterns" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tag updated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/Tag" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Taxonomies"],
+        "summary": "Delete Tag (Admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "string" }, "description": "Tag ID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Tag deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Tag deleted successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/status": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Get Payment Status",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Payment system status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/create-order": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Create Razorpay Order",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["plan"],
+                "properties": {
+                  "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Order created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "orderId": { "type": "string", "example": "order_Px123456789" },
+                        "amount": { "type": "integer", "example": 49900 },
+                        "currency": { "type": "string", "example": "INR" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/verify": {
+      "post": {
+        "tags": ["Payment"],
+        "summary": "Verify Payment Signature",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["orderId", "paymentId", "signature"],
+                "properties": {
+                  "orderId": { "type": "string", "example": "order_Px123456789" },
+                  "paymentId": { "type": "string", "example": "pay_Py987654321" },
+                  "signature": { "type": "string", "example": "signature_hash" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Payment verified successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "message": { "type": "string", "example": "Payment verified successfully" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/payments/history": {
+      "get": {
+        "tags": ["Payment"],
+        "summary": "Get Payment History",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment history retrieved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Payment" }
+                    },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "pages": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/subscription": {
+      "get": {
+        "tags": ["Subscription"],
+        "summary": "Get Current Subscription",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "User subscription details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "plan": { "type": "string", "enum": ["FREE", "PRO"], "example": "PRO" },
+                        "startDate": { "type": "string", "format": "date-time" },
+                        "endDate": { "type": "string", "format": "date-time" }
+                      }
                     }
                   }
                 }
@@ -1260,6 +2746,40 @@
         "properties": {
           "_id": { "type": "string" },
           "name": { "type": "string", "example": "react" }
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string", "example": "65893a40498b3c3bc0cd32ff" },
+          "userId": { "type": "string", "example": "65893a40498b3c3bc0cd32bb" },
+          "type": { "type": "string", "example": "comment", "description": "Notification type (comment, like, bookmark, etc.)" },
+          "message": { "type": "string", "example": "Someone commented on your snippet" },
+          "read": { "type": "boolean", "example": false },
+          "data": { "type": "object", "description": "Additional data related to the notification" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "ActivityLog": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "userId": { "type": "string", "example": "65893a40498b3c3bc0cd32bb" },
+          "actionType": { "type": "string", "example": "snippet_created", "description": "Type of action performed" },
+          "description": { "type": "string", "example": "User created a new snippet" },
+          "createdAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AuditLog": {
+        "type": "object",
+        "properties": {
+          "_id": { "type": "string" },
+          "performedBy": { "type": "string", "example": "65893a40498b3c3bc0cd32aa", "description": "Admin user who performed the action" },
+          "action": { "type": "string", "example": "user_deleted", "description": "Action performed by admin" },
+          "entityType": { "type": "string", "example": "User", "description": "Type of entity affected" },
+          "entityId": { "type": "string", "example": "65893a40498b3c3bc0cd32bb", "description": "ID of the affected entity" },
+          "changes": { "type": "object", "description": "Details of what was changed" },
+          "createdAt": { "type": "string", "format": "date-time" }
         }
       },
       "ErrorResponse": {
