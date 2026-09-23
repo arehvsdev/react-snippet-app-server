@@ -180,6 +180,20 @@ const verifyPayment = async (userId, { orderId, paymentId, signature }) => {
         }
     });
 
+    // Dispatch PRO subscription receipt & confirmation email
+    try {
+        const emailService = require("./emailService");
+        await emailService.sendSubscriptionConfirmationEmail({
+            email: updatedUser.email,
+            name: updatedUser.name,
+            plan: "PRO",
+            paymentId: paymentId,
+            amount: "₹199"
+        });
+    } catch (emailErr) {
+        console.error("Failed to send subscription confirmation email:", emailErr);
+    }
+
     return {
         user: updatedUser,
         subscription: updatedUser.subscription,

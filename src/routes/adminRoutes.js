@@ -16,7 +16,8 @@ const {
     deleteAnySnippet,
     getActivityLogs,
     getAuditLogs,
-    getAuditLogById
+    getAuditLogById,
+    getEmailLogs
 } = require("../controllers/adminController");
 const {
     getAllSubscriptions,
@@ -32,10 +33,11 @@ const { mongoIdParam } = require("../middleware/validators");
 router.use(protect);
 router.use(isAdmin);
 
-/** GET /api/admin/logs & /api/admin/audit-logs — list system activity audit logs */
+/** GET /api/admin/logs, /api/admin/audit-logs & /api/admin/email-logs — list system activity & email audit logs */
 router.get("/logs", getActivityLogs);
 router.get("/audit-logs", getAuditLogs);
 router.get("/audit-logs/:id", mongoIdParam("id"), getAuditLogById);
+router.get("/email-logs", getEmailLogs);
 
 /** GET /api/admin/users — list all users with pagination, filters, and search */
 router.get("/users", getUsers);

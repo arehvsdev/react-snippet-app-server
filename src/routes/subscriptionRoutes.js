@@ -21,4 +21,8 @@ const subscriptionController = require("../controllers/subscriptionController");
 /** GET /api/subscription — get authenticated user's subscription details */
 router.get("/", protect, subscriptionController.getMySubscription);
 
+/** POST /api/subscription/send-invoice — email invoice to authenticated user */
+router.post("/send-invoice", protect, subscriptionController.sendInvoice);
+
 module.exports = router;
+

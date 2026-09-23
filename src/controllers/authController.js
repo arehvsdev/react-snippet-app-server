@@ -43,6 +43,45 @@ const checkUsername = async (req, res, next) => {
 const login = async (req, res, next) => {
     try {
         const result = await authService.login(req.body);
+
+        if (result.refreshToken) {
+            res.cookie("refreshToken", result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+        }
+
+        res.status(200).json({
+            success: true,
+            data: result,
+            token: result.token,
+            user: result.user
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Handles Google OAuth authentication via ID token.
+ */
+const googleLogin = async (req, res, next) => {
+    try {
+        const result = await authService.googleLogin(req.body);
+
+        if (result.refreshToken) {
+            res.cookie("refreshToken", result.refreshToken, {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === "production",
+                sameSite: "lax",
+                path: "/",
+                maxAge: 7 * 24 * 60 * 60 * 1000
+            });
+        }
+
         res.status(200).json({
             success: true,
             data: result,
@@ -152,6 +191,99 @@ const resetPassword = async (req, res, next) => {
     }
 };
 
+/**
+ * Handles issuing new access token using HttpOnly refresh cookie (or body payload).
+ */
+const refreshToken = async (req, res, next) => {
+    try {
+        const incomingToken = req.cookies?.refreshToken || req.body?.refreshToken;
+        const result = await authService.refreshToken(incomingToken);
+
+        res.cookie("refreshToken", result.refreshToken, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/",
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        });
+
+        res.status(200).json({
+            success: true,
+            token: result.token
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Handles logging out user by revoking refresh token and clearing cookie.
+ */
+const logout = async (req, res, next) => {
+    try {
+        const userId = req.user?.id;
+        if (userId) {
+            await authService.logout(userId);
+        }
+
+        res.clearCookie("refreshToken", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: "lax",
+            path: "/"
+        });
+
+        res.status(200).json({
+            success: true,
+            message: "Logged out successfully"
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/auth/verify-email-token
+ * Validates email verification token and marks user email as verified.
+ */
+const verifyEmailToken = async (req, res, next) => {
+    try {
+        const token = req.body?.token || req.query?.token;
+        const result = await authService.verifyEmailToken(token);
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/auth/verify-code
+ * Validates 6-digit email verification code and marks user email as verified.
+ */
+const verifyEmailCode = async (req, res, next) => {
+    try {
+        const { email, code } = req.body;
+        const result = await authService.verifyEmailCode({ email, code });
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * POST /api/auth/resend-verification-code
+ * Generates and resends a fresh 6-digit verification code.
+ */
+const resendVerificationCode = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+        const result = await authService.resendVerificationCode({ email });
+        res.status(200).json(result);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     register,
     login,
@@ -160,5 +292,11 @@ module.exports = {
     verifyEmail,
     forgotPassword,
     validateResetToken,
-    resetPassword
+    resetPassword,
+    refreshToken,
+    logout,
+    verifyEmailToken,
+    verifyEmailCode,
+    resendVerificationCode,
+    googleLogin
 };

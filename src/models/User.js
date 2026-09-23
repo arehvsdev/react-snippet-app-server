@@ -25,13 +25,20 @@ const userSchema = new mongoose.Schema({
     },
     password: {
         type: String,
-        required: true
+        required: function () {
+            return !this.googleId;
+        }
     },
     phonenumber: {
         type: String,
         required: function () {
-            return this.role !== "admin";
+            return this.role !== "admin" && !this.googleId;
         }
+    },
+    googleId: {
+        type: String,
+        unique: true,
+        sparse: true
     },
     role: {
         type: String,
@@ -72,6 +79,32 @@ const userSchema = new mongoose.Schema({
             type: Date,
             default: null
         }
+    },
+    refreshToken: {
+        type: String,
+        default: null,
+        select: false
+    },
+    isEmailVerified: {
+        type: Boolean,
+        default: false
+    },
+    emailVerificationCode: {
+        type: String,
+        default: null,
+        select: false,
+        index: true
+    },
+    emailVerificationToken: {
+        type: String,
+        default: null,
+        select: false,
+        index: true
+    },
+    emailVerificationExpires: {
+        type: Date,
+        default: null,
+        select: false
     },
     resetPasswordToken: {
         type: String,

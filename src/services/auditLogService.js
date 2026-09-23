@@ -75,11 +75,11 @@ const recordAuditLog = async ({
     let ipAddress = "127.0.0.1";
     let userAgent = "Unknown";
     if (req) {
-      ipAddress = req.headers["x-forwarded-for"] || req.ip || req.connection?.remoteAddress || "127.0.0.1";
+      ipAddress = req.headers?.["x-forwarded-for"] || req.ip || req.connection?.remoteAddress || "127.0.0.1";
       if (ipAddress.includes(",")) {
         ipAddress = ipAddress.split(",")[0].trim();
       }
-      userAgent = req.headers["user-agent"] || "Unknown";
+      userAgent = req.headers?.["user-agent"] || "Unknown";
     }
 
     const cleanDetails = sanitizeDetails(details);

@@ -2,6 +2,22 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+const generateAccessToken = (user) => {
+    return jwt.sign(
+        { id: user._id, role: user.role },
+        process.env.JWT_SECRET || "default_secret_key_change_in_production_12345",
+        { expiresIn: "15m" }
+    );
+};
+
+const generateRefreshToken = (user) => {
+    return jwt.sign(
+        { id: user._id },
+        process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || "default_secret_key_change_in_production_12345",
+        { expiresIn: "7d" }
+    );
+};
+
 const register = async ({ name, username, email, password, role, phonenumber }) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const allowedRoles = ["developer", "student", "mentor", "recruiter"];
@@ -28,6 +44,32 @@ const register = async ({ name, username, email, password, role, phonenumber }) 
         message: "Thank you for joining SnipForge! Explore public code snippets, build your library, and share code with developers.",
         link: "/snippet-feed"
     });
+
+    // Generate 6-digit verification code & dispatch confirmation email on new registration
+    try {
+        const crypto = require("crypto");
+        const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+        const rawVerificationToken = crypto.randomBytes(32).toString("hex");
+        const hashedVerificationToken = crypto.createHash("sha256").update(rawVerificationToken).digest("hex");
+
+        user.emailVerificationCode = verificationCode;
+        user.emailVerificationToken = hashedVerificationToken;
+        user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+        await user.save();
+
+        const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+        const verificationUrl = `${clientUrl}/verify-email?email=${encodeURIComponent(user.email)}&code=${verificationCode}`;
+
+        const emailService = require("./emailService");
+        await emailService.sendVerificationEmail({
+            email: user.email,
+            name: user.name,
+            verificationUrl,
+            code: verificationCode
+        });
+    } catch (emailErr) {
+        console.error("Failed to send registration verification email:", emailErr);
+    }
 
     await activityLogService.logActivity({
         userId: user._id,
@@ -119,12 +161,33 @@ const login = async ({ email, password }) => {
         throw error;
     }
 
-    // Sign JWT with 24-hour expiration
-    const token = jwt.sign(
-        { id: user._id, role: user.role },
-        process.env.JWT_SECRET || "default_secret_key_change_in_production_12345",
-        { expiresIn: "24h" }
-    );
+    // Enforce email verification before allowing login
+    if (!user.isEmailVerified) {
+        await auditLogService.recordAuditLog({
+            userId: user._id,
+            userEmail: user.email,
+            userName: user.name,
+            type: "Authentication",
+            action: "FAILED_LOGIN",
+            resourceType: "User",
+            resourceId: user._id,
+            resourceName: user.name,
+            status: "Failed",
+            details: { email: user.email, reason: "Email not verified" }
+        });
+        const error = new Error("Please verify your email address before logging in. A 6-digit verification code has been sent to your email.");
+        error.statusCode = 403;
+        error.isEmailNotVerified = true;
+        error.email = user.email;
+        throw error;
+    }
+
+    // Generate short-lived Access Token (15 min) and long-lived Refresh Token (7 days)
+    const token = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+
+    user.refreshToken = refreshToken;
+    await user.save();
 
     await auditLogService.recordAuditLog({
         userId: user._id,
@@ -140,7 +203,154 @@ const login = async ({ email, password }) => {
     });
 
     const { password: _, ...userWithoutPassword } = user.toObject();
-    return { token, user: userWithoutPassword };
+    return { token, refreshToken, user: userWithoutPassword };
+};
+
+/**
+ * Authenticates or registers a user via Google OAuth ID token.
+ */
+const googleLogin = async ({ credential }) => {
+    if (!credential) {
+        const error = new Error("Google credential token is required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const { OAuth2Client } = require("google-auth-library");
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    const client = new OAuth2Client(clientId);
+
+    let ticket;
+    try {
+        ticket = await client.verifyIdToken({
+            idToken: credential,
+            audience: clientId || undefined,
+        });
+    } catch (verifyError) {
+        console.error("Google token verification error:", verifyError.message);
+        const error = new Error("Google authentication failed: Invalid or expired token");
+        error.statusCode = 401;
+        throw error;
+    }
+
+    const payload = ticket.getPayload();
+    if (!payload || !payload.email) {
+        const error = new Error("Google profile information could not be retrieved");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const { sub: googleId, email, name, picture } = payload;
+    const auditLogService = require("./auditLogService");
+    const activityLogService = require("./activityLogService");
+    const notificationService = require("./notificationService");
+
+    let user = await User.findOne({
+        $or: [{ googleId }, { email: email.toLowerCase() }]
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+        if (user.deleted) {
+            const error = new Error("This account has been deleted");
+            error.statusCode = 400;
+            throw error;
+        }
+        if (!user.active) {
+            const error = new Error("Your account has been disabled. Please contact the administrator.");
+            error.statusCode = 403;
+            throw error;
+        }
+
+        // Link googleId if not linked yet
+        if (!user.googleId) {
+            user.googleId = googleId;
+        }
+        // Google accounts are inherently email-verified
+        if (!user.isEmailVerified) {
+            user.isEmailVerified = true;
+        }
+        // Update avatar if missing
+        if (!user.avatar && picture) {
+            user.avatar = picture;
+        }
+    } else {
+        isNewUser = true;
+        // Generate a clean, unique username
+        let baseUsername = (email.split("@")[0] || "user").replace(/[^a-zA-Z0-9_]/g, "").toLowerCase();
+        if (!baseUsername) baseUsername = "user";
+        let username = baseUsername;
+        let counter = 1;
+        while (await User.findOne({ username })) {
+            username = `${baseUsername}${counter}`;
+            counter++;
+        }
+
+        user = new User({
+            name: name || baseUsername,
+            username,
+            email: email.toLowerCase(),
+            googleId,
+            avatar: picture || "",
+            role: "developer",
+            isEmailVerified: true,
+            active: true
+        });
+    }
+
+    // Issue JWTs
+    const token = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    user.refreshToken = refreshToken;
+    await user.save();
+
+    if (isNewUser) {
+        try {
+            await notificationService.createNotification({
+                recipient: user._id,
+                type: "welcome",
+                title: `Welcome to SnipForge, ${user.name}! 🎉`,
+                message: "Thank you for joining SnipForge with Google! Explore public code snippets, build your library, and share code with developers.",
+                link: "/snippet-feed"
+            });
+
+            await activityLogService.logActivity({
+                userId: user._id,
+                actionType: "user_register",
+                description: `New user signed up via Google: ${user.name} (@${user.username})`,
+                details: {
+                    name: user.name,
+                    username: user.username,
+                    email: user.email,
+                    role: user.role,
+                    authProvider: "google"
+                }
+            });
+        } catch (logErr) {
+            console.error("Non-critical logging error during Google signup:", logErr.message);
+        }
+    }
+
+    try {
+        await auditLogService.recordAuditLog({
+            userId: user._id,
+            userEmail: user.email,
+            userName: user.name,
+            type: "Authentication",
+            action: isNewUser ? "GOOGLE_SIGNUP" : "GOOGLE_LOGIN",
+            resourceType: "User",
+            resourceId: user._id,
+            resourceName: user.name,
+            status: "Success",
+            details: { email: user.email, role: user.role }
+        });
+    } catch (auditErr) {
+        console.error("Non-critical audit log error:", auditErr.message);
+    }
+
+    const { password: _, ...userWithoutPassword } = user.toObject();
+    return { token, refreshToken, user: userWithoutPassword };
 };
 
 /**
@@ -199,7 +409,18 @@ const forgotPassword = async ({ email, req }) => {
     await user.save();
 
     const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
-    const resetUrl = `${clientUrl}/reset-password?token=${rawToken}`;
+    const resetUrl = `${clientUrl}/reset-password?token=${rawToken}&email=${encodeURIComponent(user.email)}`;
+
+    const emailService = require("./emailService");
+    try {
+        await emailService.sendPasswordResetEmail({
+            email: user.email,
+            name: user.name,
+            resetUrl
+        });
+    } catch (emailErr) {
+        console.error("Failed to send password reset email:", emailErr);
+    }
 
     const auditLogService = require("./auditLogService");
     await auditLogService.recordAuditLog({
@@ -326,6 +547,173 @@ const resetPasswordWithToken = async ({ token, newPassword, email, req }) => {
     return true;
 };
 
+/**
+ * Validates incoming refresh token, verifies user existence & DB matching token,
+ * and issues a fresh Access Token and updated Refresh Token.
+ */
+const refreshToken = async (incomingRefreshToken) => {
+    if (!incomingRefreshToken) {
+        const error = new Error("Refresh token is required.");
+        error.statusCode = 401;
+        throw error;
+    }
+
+    let decoded;
+    try {
+        const secret = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || "default_secret_key_change_in_production_12345";
+        decoded = jwt.verify(incomingRefreshToken, secret);
+    } catch {
+        const error = new Error("Invalid or expired refresh token. Please log in again.");
+        error.statusCode = 403;
+        throw error;
+    }
+
+    const user = await User.findById(decoded.id).select("+refreshToken");
+    if (!user || user.deleted || !user.active || user.refreshToken !== incomingRefreshToken) {
+        const error = new Error("Refresh token is invalid or has been revoked.");
+        error.statusCode = 403;
+        throw error;
+    }
+
+    const newAccessToken = generateAccessToken(user);
+    const newRefreshToken = generateRefreshToken(user);
+
+    user.refreshToken = newRefreshToken;
+    await user.save();
+
+    return { token: newAccessToken, refreshToken: newRefreshToken };
+};
+
+/**
+ * Revokes refresh token in database upon user logout.
+ */
+const logout = async (userId) => {
+    if (!userId) return true;
+    await User.findByIdAndUpdate(userId, { $unset: { refreshToken: 1 } });
+    return true;
+};
+
+/**
+ * Validates SHA-256 hashed verification token, marks isEmailVerified = true, and unsets token fields.
+ */
+const verifyEmailToken = async (rawToken) => {
+    if (!rawToken || typeof rawToken !== "string") {
+        const error = new Error("Verification token is required.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const hashedToken = crypto.createHash("sha256").update(rawToken).digest("hex");
+
+    const user = await User.findOne({
+        emailVerificationToken: hashedToken,
+        emailVerificationExpires: { $gt: Date.now() },
+        deleted: { $ne: true }
+    }).select("+emailVerificationToken +emailVerificationExpires");
+
+    if (!user) {
+        const error = new Error("Verification token is invalid or has expired.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+    await user.save();
+
+    return { success: true, message: "Your email address has been successfully verified!" };
+};
+
+/**
+ * Validates 6-digit email verification code, marks isEmailVerified = true, and unsets code fields.
+ */
+const verifyEmailCode = async ({ email, code }) => {
+    if (!email || !code) {
+        const error = new Error("Email and 6-digit verification code are required.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const cleanCode = String(code).trim();
+    const user = await User.findOne({
+        email: email.toLowerCase(),
+        emailVerificationCode: cleanCode,
+        emailVerificationExpires: { $gt: Date.now() },
+        deleted: { $ne: true }
+    }).select("+emailVerificationCode +emailVerificationExpires");
+
+    if (!user) {
+        const error = new Error("Invalid or expired 6-digit verification code.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    user.isEmailVerified = true;
+    user.emailVerificationCode = undefined;
+    user.emailVerificationExpires = undefined;
+    user.emailVerificationToken = undefined;
+    await user.save();
+
+    const auditLogService = require("./auditLogService");
+    await auditLogService.recordAuditLog({
+        userId: user._id,
+        userEmail: user.email,
+        userName: user.name,
+        type: "Authentication",
+        action: "EMAIL_VERIFIED",
+        resourceType: "User",
+        resourceId: user._id,
+        resourceName: user.name,
+        status: "Success",
+        details: { email: user.email }
+    });
+
+    return { success: true, message: "Your email address has been successfully verified! You can now log in." };
+};
+
+/**
+ * Resends a fresh 6-digit verification code to user email.
+ */
+const resendVerificationCode = async ({ email }) => {
+    if (!email) {
+        const error = new Error("Email address is required.");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const user = await User.findOne({
+        email: email.toLowerCase(),
+        deleted: { $ne: true }
+    });
+
+    if (!user) {
+        return { success: true, message: "If an account exists with that email, a new verification code has been sent." };
+    }
+
+    if (user.isEmailVerified) {
+        return { success: true, message: "Your email is already verified. You can log in directly." };
+    }
+
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    user.emailVerificationCode = verificationCode;
+    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 mins
+    await user.save();
+
+    const clientUrl = process.env.CLIENT_URL || "http://localhost:5173";
+    const verificationUrl = `${clientUrl}/verify-email?email=${encodeURIComponent(user.email)}&code=${verificationCode}`;
+
+    const emailService = require("./emailService");
+    await emailService.sendVerificationEmail({
+        email: user.email,
+        name: user.name,
+        verificationUrl,
+        code: verificationCode
+    });
+
+    return { success: true, message: "A new 6-digit verification code has been sent to your email." };
+};
+
 module.exports = {
     register,
     checkUsername,
@@ -334,5 +722,11 @@ module.exports = {
     verifyEmail,
     forgotPassword,
     validateResetToken,
-    resetPasswordWithToken
+    resetPasswordWithToken,
+    refreshToken,
+    logout,
+    verifyEmailToken,
+    verifyEmailCode,
+    resendVerificationCode,
+    googleLogin
 };

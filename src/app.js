@@ -118,6 +118,27 @@ app.use("/api/", apiLimiter);
 // Body Parsing & Static File Serving
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+
+// Cookie Parsing Middleware
+app.use((req, res, next) => {
+    req.cookies = {};
+    const cookieHeader = req.headers.cookie;
+    if (cookieHeader) {
+        cookieHeader.split(";").forEach((cookie) => {
+            const parts = cookie.split("=");
+            const name = parts.shift()?.trim();
+            const value = parts.join("=")?.trim();
+            if (name) {
+                try {
+                    req.cookies[name] = decodeURIComponent(value);
+                } catch {
+                    req.cookies[name] = value;
+                }
+            }
+        });
+    }
+    next();
+});
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 app.use("/api/uploads", express.static(path.join(__dirname, "../uploads")));
 

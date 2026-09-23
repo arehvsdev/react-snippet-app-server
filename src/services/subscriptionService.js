@@ -199,6 +199,8 @@ const updateUserSubscription = async (userId, data = {}) => {
         throw error;
     }
 
+    const previousPlan = user.subscription?.plan;
+
     if (data.plan) {
         user.subscription.plan = data.plan.toUpperCase();
     }
@@ -210,6 +212,22 @@ const updateUserSubscription = async (userId, data = {}) => {
     }
 
     await user.save();
+
+    if (data.plan === "PRO" && previousPlan !== "PRO") {
+        try {
+            const emailService = require("./emailService");
+            await emailService.sendSubscriptionConfirmationEmail({
+                email: user.email,
+                name: user.name,
+                plan: "PRO",
+                paymentId: user.subscription.paymentId || "ADMIN_ACTIVATED",
+                amount: "₹199"
+            });
+        } catch (emailErr) {
+            console.error("Failed to send subscription confirmation email:", emailErr);
+        }
+    }
+
     return user;
 };
 

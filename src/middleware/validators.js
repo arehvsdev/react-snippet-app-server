@@ -577,6 +577,40 @@ const validateResetPassword = [
     handleValidationErrors
 ];
 
+const validateVerifyCode = [
+    body("email")
+        .trim()
+        .notEmpty()
+        .withMessage("Email is required")
+        .bail()
+        .isEmail()
+        .withMessage("Please provide a valid email address")
+        .normalizeEmail(),
+    body("code")
+        .trim()
+        .notEmpty()
+        .withMessage("6-digit verification code is required")
+        .bail()
+        .isLength({ min: 6, max: 6 })
+        .withMessage("Verification code must be exactly 6 digits")
+        .bail()
+        .isNumeric()
+        .withMessage("Verification code must contain digits only"),
+    handleValidationErrors
+];
+
+const validateResendCode = [
+    body("email")
+        .trim()
+        .notEmpty()
+        .withMessage("Email is required")
+        .bail()
+        .isEmail()
+        .withMessage("Please provide a valid email address")
+        .normalizeEmail(),
+    handleValidationErrors
+];
+
 module.exports = {
     handleValidationErrors,
     mongoIdParam,
@@ -598,5 +632,7 @@ module.exports = {
     validateCreateTag,
     validateUpdateTag,
     validateForgotPassword,
-    validateResetPassword
+    validateResetPassword,
+    validateVerifyCode,
+    validateResendCode
 };

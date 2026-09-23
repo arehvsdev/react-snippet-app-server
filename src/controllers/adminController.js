@@ -187,6 +187,49 @@ const getAuditLogById = async (req, res, next) => {
     }
 };
 
+const getEmailLogs = async (req, res, next) => {
+    try {
+        const EmailLog = require("../models/EmailLog");
+        const page = Math.max(1, Number(req.query.page) || 1);
+        const limit = Math.min(100, Number(req.query.limit) || 20);
+        const skip = (page - 1) * limit;
+
+        const filter = {};
+        if (req.query.emailType && req.query.emailType !== "ALL") {
+            filter.emailType = req.query.emailType.toUpperCase();
+        }
+        if (req.query.status && req.query.status !== "ALL") {
+            filter.status = req.query.status.toUpperCase();
+        }
+        if (req.query.search) {
+            filter.to = { $regex: req.query.search.trim(), $options: "i" };
+        }
+
+        const [logs, total] = await Promise.all([
+            EmailLog.find(filter)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            EmailLog.countDocuments(filter)
+        ]);
+
+        res.status(200).json({
+            success: true,
+            data: logs,
+            logs,
+            pagination: {
+                total,
+                page,
+                limit,
+                pages: Math.ceil(total / limit)
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getDashboardSummary,
     getDashboardUserGrowth,
@@ -201,5 +244,6 @@ module.exports = {
     deleteAnySnippet,
     getActivityLogs,
     getAuditLogs,
-    getAuditLogById
+    getAuditLogById,
+    getEmailLogs
 };
