@@ -4,6 +4,20 @@
  */
 const authService = require("../services/authService");
 
+const isProduction = process.env.NODE_ENV === "production";
+
+/**
+ * Cookie configuration helper supporting local development over HTTP (secure: false, sameSite: "lax")
+ * and production deployments over HTTPS (secure: true, sameSite: "none").
+ */
+const getCookieOptions = (maxAgeMs) => ({
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax",
+    path: "/",
+    ...(maxAgeMs ? { maxAge: maxAgeMs } : {})
+});
+
 /**
  * Handles new user registration request.
  */
@@ -39,19 +53,17 @@ const checkUsername = async (req, res, next) => {
 
 /**
  * Handles user authentication / login and returns JWT session token.
+ * Sets both accessToken and refreshToken in secure HttpOnly cookies.
  */
 const login = async (req, res, next) => {
     try {
         const result = await authService.login(req.body);
 
+        if (result.token) {
+            res.cookie("accessToken", result.token, getCookieOptions(15 * 60 * 1000));
+        }
         if (result.refreshToken) {
-            res.cookie("refreshToken", result.refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
-                path: "/",
-                maxAge: 7 * 24 * 60 * 60 * 1000
-            });
+            res.cookie("refreshToken", result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
         }
 
         res.status(200).json({
@@ -67,19 +79,17 @@ const login = async (req, res, next) => {
 
 /**
  * Handles Google OAuth authentication via ID token.
+ * Sets both accessToken and refreshToken in secure HttpOnly cookies.
  */
 const googleLogin = async (req, res, next) => {
     try {
         const result = await authService.googleLogin(req.body);
 
+        if (result.token) {
+            res.cookie("accessToken", result.token, getCookieOptions(15 * 60 * 1000));
+        }
         if (result.refreshToken) {
-            res.cookie("refreshToken", result.refreshToken, {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === "production",
-                sameSite: "lax",
-                path: "/",
-                maxAge: 7 * 24 * 60 * 60 * 1000
-            });
+            res.cookie("refreshToken", result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
         }
 
         res.status(200).json({
@@ -193,19 +203,19 @@ const resetPassword = async (req, res, next) => {
 
 /**
  * Handles issuing new access token using HttpOnly refresh cookie (or body payload).
+ * Refreshes both accessToken and refreshToken cookies.
  */
 const refreshToken = async (req, res, next) => {
     try {
         const incomingToken = req.cookies?.refreshToken || req.body?.refreshToken;
         const result = await authService.refreshToken(incomingToken);
 
-        res.cookie("refreshToken", result.refreshToken, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/",
-            maxAge: 7 * 24 * 60 * 60 * 1000
-        });
+        if (result.token) {
+            res.cookie("accessToken", result.token, getCookieOptions(15 * 60 * 1000));
+        }
+        if (result.refreshToken) {
+            res.cookie("refreshToken", result.refreshToken, getCookieOptions(7 * 24 * 60 * 60 * 1000));
+        }
 
         res.status(200).json({
             success: true,
@@ -217,7 +227,7 @@ const refreshToken = async (req, res, next) => {
 };
 
 /**
- * Handles logging out user by revoking refresh token and clearing cookie.
+ * Handles logging out user by revoking refresh token and clearing session cookies.
  */
 const logout = async (req, res, next) => {
     try {
@@ -226,12 +236,8 @@ const logout = async (req, res, next) => {
             await authService.logout(userId);
         }
 
-        res.clearCookie("refreshToken", {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: "lax",
-            path: "/"
-        });
+        res.clearCookie("accessToken", getCookieOptions());
+        res.clearCookie("refreshToken", getCookieOptions());
 
         res.status(200).json({
             success: true,

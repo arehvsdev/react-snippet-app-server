@@ -6,21 +6,29 @@ const jwt = require("jsonwebtoken");
 const User = require("../models/User");
 
 /**
- * Protect middleware: Verifies JWT session token in Authorization header.
+ * Protect middleware: Verifies JWT session token from HttpOnly cookie or Authorization header.
  * Attaches decoded user object to request upon successful authentication.
  * Revokes access if user password was changed after JWT was issued.
  */
 const protect = async (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    let token = null;
+
+    // 1. Extract from HttpOnly cookie
+    if (req.cookies && req.cookies.accessToken) {
+        token = req.cookies.accessToken;
+    }
+    // 2. Fall back to Authorization Bearer header for external tools/testing
+    else if (req.headers.authorization && req.headers.authorization.startsWith("Bearer ")) {
+        token = req.headers.authorization.split(" ")[1];
+    }
+
+    if (!token) {
         return res.status(401).json({
             success: false,
             message: "Not authorized, no session token provided",
             errors: null
         });
     }
-
-    const token = authHeader.split(" ")[1];
     try {
         const secret = process.env.JWT_SECRET || (process.env.NODE_ENV === "production" ? undefined : "default_secret_key_change_in_production_12345");
         if (!secret) {

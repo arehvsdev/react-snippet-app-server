@@ -50,8 +50,13 @@ const getParsedClientUrls = () => {
 const defaultAllowedOrigins = [
     "https://react-snippet-app.vercel.app",
     "http://localhost:5173",
+    "http://127.0.0.1:5173",
     "http://localhost:3000",
-    "http://localhost:5000"
+    "http://127.0.0.1:3000",
+    "http://localhost:4173",
+    "http://127.0.0.1:4173",
+    "http://localhost:5000",
+    "http://127.0.0.1:5000"
 ];
 
 // Combine default origins with any custom CLIENT_URL entries set in environment
